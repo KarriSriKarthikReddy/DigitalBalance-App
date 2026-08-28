@@ -11,8 +11,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModelProvider
 import com.digitalbalance.app.data.usage.UsageStatsDataSource
+import com.digitalbalance.app.ui.DigitalBalanceApp
 import com.digitalbalance.app.ui.theme.DigitalBalanceTheme
-import com.digitalbalance.app.ui.usage.UsageScreen
 import com.digitalbalance.app.ui.usage.UsageViewModel
 
 class MainActivity : ComponentActivity() {
@@ -29,10 +29,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             DigitalBalanceTheme {
                 val state by usageViewModel.uiState.collectAsState()
-                UsageScreen(
-                    state = state,
+                DigitalBalanceApp(
+                    usageState = state,
                     onOpenUsageSettings = ::openUsageAccessSettings,
-                    onRefresh = usageViewModel::refresh
+                    onRefreshUsage = usageViewModel::refresh
                 )
             }
         }

@@ -49,7 +49,8 @@ class UsageStatsDataSource(context: Context) {
                     packageName = packageName,
                     appName = app.label,
                     foregroundDurationMillis = sessions.sumOf(ForegroundSession::durationMillis),
-                    openCount = sessions.size
+                    openCount = sessions.size,
+                    icon = appClassifier.loadIcon(packageName)
                 )
             }
             .filter { it.foregroundDurationMillis > 0L }

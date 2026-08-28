@@ -5,7 +5,10 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.graphics.Bitmap
 import android.os.Build
+import android.util.LruCache
+import androidx.core.graphics.drawable.toBitmap
 
 enum class AppKind(val includedInPrimaryUsage: Boolean) {
     UserFacing(true),
@@ -24,6 +27,12 @@ data class ClassifiedApp(
 class AppClassifier(context: Context) {
     private val appContext = context.applicationContext
     private val packageManager = appContext.packageManager
+    private val iconSizePixels = (48 * appContext.resources.displayMetrics.density)
+        .toInt()
+        .coerceIn(48, 96)
+    private val iconCache = object : LruCache<String, Bitmap>(ICON_CACHE_KILOBYTES) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
+    }
     private val launchablePackages by lazy {
         queryPackages(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
     }
@@ -54,6 +63,23 @@ class AppClassifier(context: Context) {
             ?.takeIf(String::isNotBlank)
             ?: packageName
         return ClassifiedApp(packageName, label, kind)
+    }
+
+    fun loadIcon(packageName: String): Bitmap? {
+        iconCache.get(packageName)?.let { return it }
+        val icon = try {
+            packageManager.getApplicationIcon(packageName).toBitmap(
+                width = iconSizePixels,
+                height = iconSizePixels,
+                config = Bitmap.Config.ARGB_8888
+            )
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        } catch (_: RuntimeException) {
+            null
+        }
+        if (icon != null) iconCache.put(packageName, icon)
+        return icon
     }
 
     private fun resolveLabel(packageName: String): String {
@@ -91,5 +117,9 @@ class AppClassifier(context: Context) {
         activities.mapNotNullTo(mutableSetOf()) { it.activityInfo?.packageName }
     } catch (_: RuntimeException) {
         emptySet()
+    }
+
+    private companion object {
+        const val ICON_CACHE_KILOBYTES = 2 * 1024
     }
 }
