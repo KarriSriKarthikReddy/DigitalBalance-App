@@ -25,7 +25,9 @@ import com.digitalbalance.app.ui.home.HomeScreen
 import com.digitalbalance.app.ui.insights.InsightsScreen
 import com.digitalbalance.app.ui.settings.SettingsScreen
 import com.digitalbalance.app.ui.usage.UsageUiState
+import com.digitalbalance.app.ui.usage.GoalUiState
 import com.digitalbalance.app.domain.category.AppCategory
+import com.digitalbalance.app.domain.goal.GoalType
 
 private enum class AppDestination(
     @param:StringRes val labelRes: Int,
@@ -41,9 +43,12 @@ private enum class AppDestination(
 @Composable
 fun DigitalBalanceApp(
     usageState: UsageUiState,
+    goalState: GoalUiState,
     onOpenUsageSettings: () -> Unit,
     onRefreshUsage: () -> Unit,
-    onCategoryChanged: (String, AppCategory) -> Unit
+    onCategoryChanged: (String, AppCategory) -> Unit,
+    onSaveGoal: (GoalType, Long, String?, String?) -> Unit,
+    onDeleteGoal: (String) -> Unit
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
 
@@ -89,8 +94,12 @@ fun DigitalBalanceApp(
             AppDestination.Focus -> FocusScreen(modifier)
             AppDestination.Settings -> SettingsScreen(
                 state = usageState,
+                goalState = goalState,
+                apps = (usageState as? UsageUiState.Content)?.apps.orEmpty(),
                 androidVersion = Build.VERSION.RELEASE,
                 onOpenUsageSettings = onOpenUsageSettings,
+                onSaveGoal = onSaveGoal,
+                onDeleteGoal = onDeleteGoal,
                 modifier = modifier
             )
         }

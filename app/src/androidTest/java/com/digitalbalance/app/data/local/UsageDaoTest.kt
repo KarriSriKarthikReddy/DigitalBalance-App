@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlinx.coroutines.flow.first
 
 @RunWith(AndroidJUnit4::class)
 class UsageDaoTest {
@@ -56,5 +57,25 @@ class UsageDaoTest {
         assertEquals(1, records.size)
         assertEquals(25L, records.single().foregroundDurationMillis)
         assertEquals(2, records.single().openCount)
+    }
+
+    @Test
+    fun goalCanBeInsertedEditedAndDeleted() = runBlocking {
+        val goalDao = database.goalDao()
+        val original = GoalEntity(
+            id = "social_media_limit",
+            typeKey = "social_media_limit",
+            targetDurationMillis = 30L,
+            packageName = null,
+            appName = null,
+            updatedAtMillis = 1L
+        )
+
+        goalDao.upsertGoal(original)
+        goalDao.upsertGoal(original.copy(targetDurationMillis = 45L, updatedAtMillis = 2L))
+        assertEquals(45L, goalDao.observeGoals().first().single().targetDurationMillis)
+
+        goalDao.deleteGoal(original.id)
+        assertEquals(emptyList<GoalEntity>(), goalDao.observeGoals().first())
     }
 }

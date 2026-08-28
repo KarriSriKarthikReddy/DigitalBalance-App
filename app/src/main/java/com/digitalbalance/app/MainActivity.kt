@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.digitalbalance.app.data.usage.UsageStatsDataSource
 import com.digitalbalance.app.data.local.DigitalBalanceDatabase
 import com.digitalbalance.app.data.repository.UsageRepository
+import com.digitalbalance.app.data.repository.GoalRepository
 import com.digitalbalance.app.ui.DigitalBalanceApp
 import com.digitalbalance.app.ui.theme.DigitalBalanceTheme
 import com.digitalbalance.app.ui.usage.UsageViewModel
@@ -26,7 +27,8 @@ class MainActivity : ComponentActivity() {
                 UsageRepository(
                     systemUsage = UsageStatsDataSource(applicationContext),
                     usageDao = database.usageDao()
-                )
+                ),
+                GoalRepository(database.goalDao())
             )
         )[UsageViewModel::class.java]
     }
@@ -37,11 +39,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             DigitalBalanceTheme {
                 val state by usageViewModel.uiState.collectAsState()
+                val goalState by usageViewModel.goalUiState.collectAsState()
                 DigitalBalanceApp(
                     usageState = state,
+                    goalState = goalState,
                     onOpenUsageSettings = ::openUsageAccessSettings,
                     onRefreshUsage = usageViewModel::refresh,
-                    onCategoryChanged = usageViewModel::setCategory
+                    onCategoryChanged = usageViewModel::setCategory,
+                    onSaveGoal = usageViewModel::saveGoal,
+                    onDeleteGoal = usageViewModel::deleteGoal
                 )
             }
         }
