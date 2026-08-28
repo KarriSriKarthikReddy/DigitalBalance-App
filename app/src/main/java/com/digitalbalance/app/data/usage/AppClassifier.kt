@@ -1,12 +1,15 @@
 package com.digitalbalance.app.data.usage
 
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.Bitmap
 import android.os.Build
+import android.util.Log
 import android.util.LruCache
 import androidx.core.graphics.drawable.toBitmap
 
@@ -36,32 +39,49 @@ class AppClassifier(context: Context) {
     private val launchablePackages by lazy {
         queryPackages(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER))
     }
-    private val launcherPackages by lazy {
+    private val homeCapablePackages by lazy {
         queryPackages(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
     }
+    private val defaultHomePackage by lazy {
+        resolveDefaultHomePackage()
+    }
+    private val debugLoggingEnabled =
+        appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    fun classify(packageName: String): ClassifiedApp {
-        if (packageName == appContext.packageName) {
-            return ClassifiedApp(packageName, resolveLabel(packageName), AppKind.DigitalBalance)
-        }
-        if (packageName in launcherPackages) {
-            return ClassifiedApp(packageName, resolveLabel(packageName), AppKind.Launcher)
-        }
-
+    fun classify(
+        packageName: String,
+        foregroundActivityClassNames: Set<String> = emptySet()
+    ): ClassifiedApp {
         val applicationInfo = getApplicationInfo(packageName)
         val isLaunchable = packageName in launchablePackages
+        val isDefaultHome = packageName == defaultHomePackage
+        val hasExportedForegroundActivity = foregroundActivityClassNames.any { className ->
+            getActivityInfo(packageName, className)?.let { it.exported && it.enabled } == true
+        }
         val isSystemApp = applicationInfo?.flags?.let { flags ->
             flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
         } ?: false
-        val kind = when {
-            isLaunchable && isSystemApp -> AppKind.SystemUserFacing
-            isLaunchable -> AppKind.UserFacing
-            else -> AppKind.BackgroundOrUnknown
-        }
+        val kind = resolveAppKind(
+            isDigitalBalance = packageName == appContext.packageName,
+            isDefaultHome = isDefaultHome,
+            isLaunchable = isLaunchable,
+            isSystemApp = isSystemApp,
+            hasExportedForegroundActivity = hasExportedForegroundActivity
+        )
         val label = applicationInfo?.let(packageManager::getApplicationLabel)
             ?.toString()
             ?.takeIf(String::isNotBlank)
             ?: packageName
+        if (debugLoggingEnabled && packageName == GOOGLE_SEARCH_PACKAGE) {
+            Log.d(
+                DEBUG_TAG,
+                "GOOGLE_SEARCH_CLASSIFICATION launchable=$isLaunchable " +
+                    "homeCapable=${packageName in homeCapablePackages} " +
+                    "defaultHome=$isDefaultHome system=$isSystemApp " +
+                    "exportedForegroundActivity=$hasExportedForegroundActivity " +
+                    "activityClasses=$foregroundActivityClassNames kind=$kind"
+            )
+        }
         return ClassifiedApp(packageName, label, kind)
     }
 
@@ -103,6 +123,24 @@ class AppClassifier(context: Context) {
         null
     }
 
+    private fun getActivityInfo(packageName: String, className: String): ActivityInfo? = try {
+        val resolvedClassName = if (className.startsWith('.')) packageName + className else className
+        val componentName = ComponentName(packageName, resolvedClassName)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getActivityInfo(
+                componentName,
+                PackageManager.ComponentInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getActivityInfo(componentName, 0)
+        }
+    } catch (_: PackageManager.NameNotFoundException) {
+        null
+    } catch (_: RuntimeException) {
+        null
+    }
+
     private fun queryPackages(intent: Intent): Set<String> = try {
         val activities: List<ResolveInfo> =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -119,7 +157,39 @@ class AppClassifier(context: Context) {
         emptySet()
     }
 
+    private fun resolveDefaultHomePackage(): String? = try {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val activity = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.resolveActivity(
+                intent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        }
+        activity?.activityInfo?.packageName
+    } catch (_: RuntimeException) {
+        null
+    }
+
     private companion object {
         const val ICON_CACHE_KILOBYTES = 2 * 1024
+        const val GOOGLE_SEARCH_PACKAGE = "com.google.android.googlequicksearchbox"
+        const val DEBUG_TAG = "DigitalBalanceUsage"
     }
+}
+
+internal fun resolveAppKind(
+    isDigitalBalance: Boolean,
+    isDefaultHome: Boolean,
+    isLaunchable: Boolean,
+    isSystemApp: Boolean,
+    hasExportedForegroundActivity: Boolean
+): AppKind = when {
+    isDigitalBalance -> AppKind.DigitalBalance
+    isDefaultHome -> AppKind.Launcher
+    !isLaunchable && !hasExportedForegroundActivity -> AppKind.BackgroundOrUnknown
+    isSystemApp -> AppKind.SystemUserFacing
+    else -> AppKind.UserFacing
 }

@@ -32,11 +32,25 @@ class UsageStatsDataSource(context: Context) {
         val startOfDay = localStartOfDay(nowMillis)
         val records = loadEventRecords(startOfDay, nowMillis)
         val reconstruction = reconstructor.reconstruct(records, startOfDay, nowMillis)
+        val foregroundActivitiesByPackage = records
+            .asSequence()
+            .filter { it.kind == UsageEventKind.Resumed }
+            .filter { !it.packageName.isNullOrBlank() && !it.activityId.isNullOrBlank() }
+            .groupBy(
+                keySelector = { requireNotNull(it.packageName) },
+                valueTransform = { requireNotNull(it.activityId) }
+            )
+            .mapValues { (_, classNames) -> classNames.toSet() }
         val classifiedApps = reconstruction.sessions
             .asSequence()
             .map(ForegroundSession::packageName)
             .distinct()
-            .associateWith(appClassifier::classify)
+            .associateWith { packageName ->
+                appClassifier.classify(
+                    packageName = packageName,
+                    foregroundActivityClassNames = foregroundActivitiesByPackage[packageName].orEmpty()
+                )
+            }
 
         val includedSessions = reconstruction.sessions.filter { session ->
             classifiedApps.getValue(session.packageName).kind.includedInPrimaryUsage
@@ -61,6 +75,7 @@ class UsageStatsDataSource(context: Context) {
 
         val totalDuration = includedSessions.sumOf(ForegroundSession::durationMillis)
         if (debugLoggingEnabled) {
+            logGoogleSearchSummary(records, reconstruction, classifiedApps)
             logDebugComparison(
                 startOfDay = startOfDay,
                 nowMillis = nowMillis,
@@ -83,7 +98,15 @@ class UsageStatsDataSource(context: Context) {
         return buildList {
             while (usageEvents.hasNextEvent()) {
                 usageEvents.getNextEvent(event)
-                val kind = eventKind(event.eventType) ?: continue
+                val kind = eventKind(event.eventType)
+                if (debugLoggingEnabled && event.packageName == GOOGLE_SEARCH_PACKAGE) {
+                    Log.d(
+                        DEBUG_TAG,
+                        "GOOGLE_SEARCH_EVENT type=${event.eventType} mappedKind=$kind " +
+                            "class=${event.className} timestampMs=${event.timeStamp}"
+                    )
+                }
+                if (kind == null) continue
                 add(
                     UsageEventRecord(
                         packageName = event.packageName,
@@ -94,6 +117,25 @@ class UsageStatsDataSource(context: Context) {
                 )
             }
         }
+    }
+
+    private fun logGoogleSearchSummary(
+        records: List<UsageEventRecord>,
+        reconstruction: SessionReconstruction,
+        classifiedApps: Map<String, ClassifiedApp>
+    ) {
+        val googleRecords = records.filter { it.packageName == GOOGLE_SEARCH_PACKAGE }
+        val googleSessions = reconstruction.sessions.filter {
+            it.packageName == GOOGLE_SEARCH_PACKAGE
+        }
+        val classified = classifiedApps[GOOGLE_SEARCH_PACKAGE]
+        Log.d(
+            DEBUG_TAG,
+            "GOOGLE_SEARCH_SUMMARY mappedEvents=${googleRecords.size} " +
+                "sessions=${googleSessions.size} " +
+                "durationMs=${googleSessions.sumOf(ForegroundSession::durationMillis)} " +
+                "kind=${classified?.kind} included=${classified?.kind?.includedInPrimaryUsage}"
+        )
     }
 
     private fun activityId(event: UsageEvents.Event): String? {
@@ -188,5 +230,6 @@ class UsageStatsDataSource(context: Context) {
 
     private companion object {
         const val DEBUG_TAG = "DigitalBalanceUsage"
+        const val GOOGLE_SEARCH_PACKAGE = "com.google.android.googlequicksearchbox"
     }
 }
