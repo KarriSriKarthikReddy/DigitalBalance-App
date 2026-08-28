@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.digitalbalance.app.R
 import com.digitalbalance.app.data.usage.AppUsage
+import com.digitalbalance.app.ui.category.labelRes
 
 @Composable
 fun AppIcon(
@@ -66,7 +67,8 @@ fun AppIcon(
 fun CompactAppRow(
     usage: AppUsage,
     modifier: Modifier = Modifier,
-    showOpenCount: Boolean = false
+    showOpenCount: Boolean = false,
+    showCategory: Boolean = false
 ) {
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 10.dp),
@@ -93,6 +95,13 @@ fun CompactAppRow(
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (showCategory) {
+                Text(
+                    text = stringResource(usage.category.labelRes()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

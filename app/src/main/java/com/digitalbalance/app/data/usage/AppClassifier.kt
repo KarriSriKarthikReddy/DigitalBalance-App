@@ -102,6 +102,12 @@ class AppClassifier(context: Context) {
         return icon
     }
 
+    fun applicationCategory(packageName: String): Int? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
+        return getApplicationInfo(packageName)?.category
+            ?.takeUnless { it == ApplicationInfo.CATEGORY_UNDEFINED }
+    }
+
     private fun resolveLabel(packageName: String): String {
         val info = getApplicationInfo(packageName) ?: return packageName
         return packageManager.getApplicationLabel(info).toString().ifBlank { packageName }

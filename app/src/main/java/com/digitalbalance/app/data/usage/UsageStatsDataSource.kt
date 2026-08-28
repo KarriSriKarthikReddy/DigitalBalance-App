@@ -8,6 +8,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import com.digitalbalance.app.domain.category.DefaultCategoryResolver
 import java.util.Calendar
 
 class UsageStatsDataSource(context: Context) {
@@ -16,6 +17,7 @@ class UsageStatsDataSource(context: Context) {
     private val usageStatsManager = appContext.getSystemService(UsageStatsManager::class.java)
     private val appClassifier = AppClassifier(appContext)
     private val reconstructor = UsageSessionReconstructor()
+    private val categoryResolver = DefaultCategoryResolver()
     private val debugLoggingEnabled =
         appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
@@ -64,7 +66,11 @@ class UsageStatsDataSource(context: Context) {
                     appName = app.label,
                     foregroundDurationMillis = sessions.sumOf(ForegroundSession::durationMillis),
                     openCount = sessions.size,
-                    icon = appClassifier.loadIcon(packageName)
+                    icon = appClassifier.loadIcon(packageName),
+                    category = categoryResolver.resolve(
+                        packageName = packageName,
+                        applicationCategory = appClassifier.applicationCategory(packageName)
+                    )
                 )
             }
             .filter { it.foregroundDurationMillis > 0L }

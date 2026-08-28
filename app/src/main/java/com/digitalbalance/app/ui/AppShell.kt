@@ -25,6 +25,7 @@ import com.digitalbalance.app.ui.home.HomeScreen
 import com.digitalbalance.app.ui.insights.InsightsScreen
 import com.digitalbalance.app.ui.settings.SettingsScreen
 import com.digitalbalance.app.ui.usage.UsageUiState
+import com.digitalbalance.app.domain.category.AppCategory
 
 private enum class AppDestination(
     @param:StringRes val labelRes: Int,
@@ -41,7 +42,8 @@ private enum class AppDestination(
 fun DigitalBalanceApp(
     usageState: UsageUiState,
     onOpenUsageSettings: () -> Unit,
-    onRefreshUsage: () -> Unit
+    onRefreshUsage: () -> Unit,
+    onCategoryChanged: (String, AppCategory) -> Unit
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
 
@@ -80,6 +82,7 @@ fun DigitalBalanceApp(
                 state = usageState,
                 onOpenUsageSettings = onOpenUsageSettings,
                 onRefresh = onRefreshUsage,
+                onCategoryChanged = onCategoryChanged,
                 modifier = modifier
             )
             AppDestination.Insights -> InsightsScreen(modifier)
