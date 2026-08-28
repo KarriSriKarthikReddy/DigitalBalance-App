@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">DigitalBalance</string>
+    <string name="today_title">Today</string>
+    <string name="refresh">Refresh</string>
+    <string name="usage_access_title">See your digital day clearly</string>
+    <string name="usage_access_description">DigitalBalance needs Usage Access to calculate how long you use each app and show your daily total.</string>
+    <string name="on_device_title">Private and on-device</string>
+    <string name="on_device_description">Your usage data is read and processed only on this phone. It is not uploaded or backed up.</string>
+    <string name="special_access_description">Usage Access is Special App Access managed in Android Settings, not a normal permission pop-up. You stay in control and can turn it off at any time.</string>
+    <string name="open_usage_settings">Open Usage Access settings</string>
+    <string name="loading_usage">Loading today’s usage…</string>
+    <string name="empty_usage_title">No usage recorded yet</string>
+    <string name="empty_usage_description">Android has not reported foreground app activity for today. Use a few apps, then return and refresh.</string>
+    <string name="usage_error_title">Couldn’t load usage</string>
+    <string name="usage_error_description">Something prevented DigitalBalance from reading today’s usage.</string>
+    <string name="try_again">Try again</string>
+    <string name="tracked_today">Foreground app usage</string>
+    <string name="foreground_usage_note">User-facing apps only; home screen and background components are excluded</string>
+    <string name="apps_used_count">%1$d apps with foreground activity</string>
+    <string name="less_than_minute">&lt; 1 min</string>
+    <string name="minutes_short">%1$d min</string>
+    <string name="hours_minutes_short">%1$dh %2$dm</string>
 </resources>
