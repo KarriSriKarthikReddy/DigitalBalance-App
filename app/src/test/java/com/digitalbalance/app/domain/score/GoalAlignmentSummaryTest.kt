@@ -3,11 +3,11 @@ package com.digitalbalance.app.domain.score
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class ProductivityScoreSummaryTest {
+class GoalAlignmentSummaryTest {
     @Test
     fun exceededLimitTakesPriority() {
         assertEquals(
-            ProductivityScoreSummary.LimitsExceeded,
+            GoalAlignmentSummary.LimitsExceeded,
             result(productiveActual = 30, productiveTarget = 60, limitActual = 61).overallSummary()
         )
     }
@@ -15,7 +15,7 @@ class ProductivityScoreSummaryTest {
     @Test
     fun incompleteProductiveTargetIsReportedWhenLimitsAreWithinRange() {
         assertEquals(
-            ProductivityScoreSummary.ProductiveTargetInProgress,
+            GoalAlignmentSummary.ProductiveTargetInProgress,
             result(productiveActual = 30, productiveTarget = 60, limitActual = 30).overallSummary()
         )
     }
@@ -23,7 +23,7 @@ class ProductivityScoreSummaryTest {
     @Test
     fun completedProductiveTargetReportsOverallProgress() {
         assertEquals(
-            ProductivityScoreSummary.GoalsProgressing,
+            GoalAlignmentSummary.GoalsProgressing,
             result(productiveActual = 60, productiveTarget = 60, limitActual = 30).overallSummary()
         )
     }
@@ -31,7 +31,7 @@ class ProductivityScoreSummaryTest {
     @Test
     fun limitOnlyResultReportsAllLimitsWithinRange() {
         assertEquals(
-            ProductivityScoreSummary.WithinAllLimits,
+            GoalAlignmentSummary.WithinAllLimits,
             result(productiveActual = null, productiveTarget = null, limitActual = 30).overallSummary()
         )
     }
@@ -40,15 +40,15 @@ class ProductivityScoreSummaryTest {
         productiveActual: Long?,
         productiveTarget: Long?,
         limitActual: Long
-    ): ProductivityScoreResult {
+    ): GoalAlignmentResult {
         val components = buildList {
             if (productiveActual != null && productiveTarget != null) {
                 add(component(ScoreComponentKind.ProductiveGoal, productiveActual, productiveTarget))
             }
             add(component(ScoreComponentKind.OverallLimit, limitActual, 60))
         }
-        return ProductivityScoreResult(
-            status = ProductivityScoreStatus.Ready,
+        return GoalAlignmentResult(
+            status = GoalAlignmentStatus.Ready,
             score = 100,
             components = components,
             reasons = emptyList(),

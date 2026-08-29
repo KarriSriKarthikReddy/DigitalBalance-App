@@ -8,8 +8,8 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
-class ProductivityScoreEngine {
-    fun calculate(input: ProductivityScoreInput): ProductivityScoreResult {
+class GoalAlignmentEngine {
+    fun calculate(input: GoalAlignmentInput): GoalAlignmentResult {
         val normalizedApps = input.apps.map { app ->
             app.copy(durationMillis = app.durationMillis.coerceAtLeast(0L))
         }
@@ -25,16 +25,16 @@ class ProductivityScoreEngine {
 
         val unavailableReasons = buildList {
             if (components.isEmpty()) add("Configure at least one goal to calculate a personal score.")
-            if (totalDuration < ScorePolicy.MIN_TRACKED_DURATION_MILLIS) {
+            if (totalDuration < GoalAlignmentPolicy.MIN_TRACKED_DURATION_MILLIS) {
                 add("Use your phone a little longer so today’s score has enough real usage data.")
             }
-            if (components.isNotEmpty() && coverage.confidence < ScorePolicy.MIN_READY_CONFIDENCE) {
+            if (components.isNotEmpty() && coverage.confidence < GoalAlignmentPolicy.MIN_READY_CONFIDENCE) {
                 add("Classify more Mixed or Other usage to make category-based goals reliable.")
             }
         }
         if (unavailableReasons.isNotEmpty()) {
-            return ProductivityScoreResult(
-                status = ProductivityScoreStatus.NotEnoughData,
+            return GoalAlignmentResult(
+                status = GoalAlignmentStatus.NotEnoughData,
                 score = null,
                 components = components,
                 reasons = unavailableReasons.distinct(),
@@ -45,10 +45,10 @@ class ProductivityScoreEngine {
 
         val normalizedScore = components.sumOf { it.score * it.activeWeight } / activeWeight
         val score = normalizedScore
-            .coerceIn(ScorePolicy.MIN_SCORE, ScorePolicy.MAX_SCORE)
+            .coerceIn(GoalAlignmentPolicy.MIN_SCORE, GoalAlignmentPolicy.MAX_SCORE)
             .roundToInt()
-        return ProductivityScoreResult(
-            status = ProductivityScoreStatus.Ready,
+        return GoalAlignmentResult(
+            status = GoalAlignmentStatus.Ready,
             score = score,
             components = components,
             reasons = summaryReasons(components),
@@ -75,7 +75,7 @@ class ProductivityScoreEngine {
         val perAppWeight = if (perAppGoals.isEmpty()) {
             0.0
         } else {
-            ScorePolicy.PER_APP_LIMITS_TOTAL_WEIGHT / perAppGoals.size
+            GoalAlignmentPolicy.PER_APP_LIMITS_TOTAL_WEIGHT / perAppGoals.size
         }
 
         return buildList {
@@ -84,7 +84,7 @@ class ProductivityScoreEngine {
                     productiveComponent(
                         goal = goal,
                         actualDuration = productiveDuration,
-                        weight = ScorePolicy.PRODUCTIVE_GOAL_WEIGHT
+                        weight = GoalAlignmentPolicy.PRODUCTIVE_GOAL_WEIGHT
                     )
                 )
             }
@@ -95,7 +95,7 @@ class ProductivityScoreEngine {
                         kind = ScoreComponentKind.OverallLimit,
                         name = "Overall foreground usage",
                         actualDuration = totalDuration,
-                        weight = ScorePolicy.OVERALL_LIMIT_WEIGHT,
+                        weight = GoalAlignmentPolicy.OVERALL_LIMIT_WEIGHT,
                         requiresClassification = false
                     )
                 )
@@ -107,7 +107,7 @@ class ProductivityScoreEngine {
                         kind = ScoreComponentKind.SocialLimit,
                         name = "Social-media limit",
                         actualDuration = socialDuration,
-                        weight = ScorePolicy.SOCIAL_LIMIT_WEIGHT,
+                        weight = GoalAlignmentPolicy.SOCIAL_LIMIT_WEIGHT,
                         requiresClassification = true
                     )
                 )
@@ -119,7 +119,7 @@ class ProductivityScoreEngine {
                         kind = ScoreComponentKind.EntertainmentLimit,
                         name = "Entertainment limit",
                         actualDuration = entertainmentDuration,
-                        weight = ScorePolicy.ENTERTAINMENT_LIMIT_WEIGHT,
+                        weight = GoalAlignmentPolicy.ENTERTAINMENT_LIMIT_WEIGHT,
                         requiresClassification = true
                     )
                 )
@@ -150,7 +150,7 @@ class ProductivityScoreEngine {
         val ratio = actualDuration.toDouble() / goal.targetDurationMillis
         val boundedRatio = ratio.coerceIn(0.0, 1.0)
         val smoothProgress = boundedRatio * boundedRatio * (3.0 - 2.0 * boundedRatio)
-        val rawScore = ScorePolicy.MAX_SCORE * smoothProgress
+        val rawScore = GoalAlignmentPolicy.MAX_SCORE * smoothProgress
         return ScoreComponent(
             id = goal.id,
             kind = ScoreComponentKind.ProductiveGoal,
@@ -176,10 +176,11 @@ class ProductivityScoreEngine {
         val excessRatio = max(0.0, ratio - 1.0)
         val smoothedExcessRatio = sqrt(
             excessRatio * excessRatio +
-                ScorePolicy.LIMIT_BOUNDARY_GRACE_RATIO * ScorePolicy.LIMIT_BOUNDARY_GRACE_RATIO
-        ) - ScorePolicy.LIMIT_BOUNDARY_GRACE_RATIO
-        val rawScore = ScorePolicy.MAX_SCORE * exp(
-            -ScorePolicy.LIMIT_EXCESS_DECAY_RATE * smoothedExcessRatio
+                GoalAlignmentPolicy.LIMIT_BOUNDARY_GRACE_RATIO *
+                GoalAlignmentPolicy.LIMIT_BOUNDARY_GRACE_RATIO
+        ) - GoalAlignmentPolicy.LIMIT_BOUNDARY_GRACE_RATIO
+        val rawScore = GoalAlignmentPolicy.MAX_SCORE * exp(
+            -GoalAlignmentPolicy.LIMIT_EXCESS_DECAY_RATE * smoothedExcessRatio
         )
         val explanation = if (actualDuration <= goal.targetDurationMillis) {
             "${formatDuration(actualDuration)} used within the ${formatDuration(goal.targetDurationMillis)} configured limit."
@@ -234,8 +235,8 @@ class ProductivityScoreEngine {
             0.0
         }.coerceIn(0.0, 1.0)
         val level = when {
-            confidence >= ScorePolicy.HIGH_CONFIDENCE_THRESHOLD -> ScoreConfidence.High
-            confidence >= ScorePolicy.MEDIUM_CONFIDENCE_THRESHOLD -> ScoreConfidence.Medium
+            confidence >= GoalAlignmentPolicy.HIGH_CONFIDENCE_THRESHOLD -> ScoreConfidence.High
+            confidence >= GoalAlignmentPolicy.MEDIUM_CONFIDENCE_THRESHOLD -> ScoreConfidence.Medium
             else -> ScoreConfidence.Low
         }
         return ScoreCoverage(
@@ -255,12 +256,12 @@ class ProductivityScoreEngine {
         val highest = components.maxWith(compareBy(ScoreComponent::score, ScoreComponent::id))
         return listOf(lowest, highest)
             .distinctBy(ScoreComponent::id)
-            .take(ScorePolicy.MAX_SUMMARY_REASONS)
+            .take(GoalAlignmentPolicy.MAX_SUMMARY_REASONS)
             .map(ScoreComponent::explanation)
     }
 
     private fun boundedScore(score: Double): Int = score
-        .coerceIn(ScorePolicy.MIN_SCORE, ScorePolicy.MAX_SCORE)
+        .coerceIn(GoalAlignmentPolicy.MIN_SCORE, GoalAlignmentPolicy.MAX_SCORE)
         .roundToInt()
 
     private fun formatDuration(durationMillis: Long): String {

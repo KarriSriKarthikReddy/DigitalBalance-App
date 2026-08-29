@@ -12,9 +12,17 @@ import com.digitalbalance.app.domain.goal.DigitalGoal
 import com.digitalbalance.app.domain.goal.GoalProgress
 import com.digitalbalance.app.domain.goal.GoalProgressCalculator
 import com.digitalbalance.app.domain.goal.GoalType
-import com.digitalbalance.app.domain.score.ProductivityScoreEngine
-import com.digitalbalance.app.domain.score.ProductivityScoreInput
-import com.digitalbalance.app.domain.score.ProductivityScoreResult
+import com.digitalbalance.app.domain.insight.InsightAppUsage
+import com.digitalbalance.app.domain.insight.InsightInput
+import com.digitalbalance.app.domain.insight.PersonalInsight
+import com.digitalbalance.app.domain.insight.SmartInsightEngine
+import com.digitalbalance.app.domain.productivity.ProductivityAppUsage
+import com.digitalbalance.app.domain.productivity.ProductivityScoreEngine
+import com.digitalbalance.app.domain.productivity.ProductivityScoreInput
+import com.digitalbalance.app.domain.productivity.ProductivityScoreResult
+import com.digitalbalance.app.domain.score.GoalAlignmentEngine
+import com.digitalbalance.app.domain.score.GoalAlignmentInput
+import com.digitalbalance.app.domain.score.GoalAlignmentResult
 import com.digitalbalance.app.domain.score.ScoredAppUsage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,9 +52,19 @@ sealed interface GoalUiState {
     data class Content(val progress: List<GoalProgress>) : GoalUiState
 }
 
-sealed interface ScoreUiState {
-    data object Loading : ScoreUiState
-    data class Result(val score: ProductivityScoreResult) : ScoreUiState
+sealed interface GoalAlignmentUiState {
+    data object Loading : GoalAlignmentUiState
+    data class Result(val alignment: GoalAlignmentResult) : GoalAlignmentUiState
+}
+
+sealed interface ProductivityUiState {
+    data object Loading : ProductivityUiState
+    data class Result(val productivity: ProductivityScoreResult) : ProductivityUiState
+}
+
+sealed interface InsightUiState {
+    data object Loading : InsightUiState
+    data class Content(val insights: List<PersonalInsight>) : InsightUiState
 }
 
 class UsageViewModel(
@@ -54,7 +72,9 @@ class UsageViewModel(
     private val goalRepository: GoalRepository
 ) : ViewModel() {
     private val goalCalculator = GoalProgressCalculator()
-    private val scoreEngine = ProductivityScoreEngine()
+    private val goalAlignmentEngine = GoalAlignmentEngine()
+    private val productivityScoreEngine = ProductivityScoreEngine()
+    private val insightEngine = SmartInsightEngine()
     private val baseState = MutableStateFlow<UsageUiState>(UsageUiState.Loading)
     private val goals: StateFlow<List<DigitalGoal>?> = goalRepository.observeGoals()
         .map<List<DigitalGoal>, List<DigitalGoal>?> { it }
@@ -105,18 +125,21 @@ class UsageViewModel(
         started = SharingStarted.Eagerly,
         initialValue = GoalUiState.Loading
     )
-    val scoreUiState: StateFlow<ScoreUiState> = combine(uiState, goals) { usageState, goals ->
+    val goalAlignmentUiState: StateFlow<GoalAlignmentUiState> = combine(
+        uiState,
+        goals
+    ) { usageState, goals ->
         if (goals == null || usageState == UsageUiState.Loading) {
-            return@combine ScoreUiState.Loading
+            return@combine GoalAlignmentUiState.Loading
         }
         val apps = (usageState as? UsageUiState.Content)?.apps.orEmpty()
         val totalDuration = when (usageState) {
             is UsageUiState.Content -> usageState.totalDurationMillis
             else -> 0L
         }
-        ScoreUiState.Result(
-            scoreEngine.calculate(
-                ProductivityScoreInput(
+        GoalAlignmentUiState.Result(
+            goalAlignmentEngine.calculate(
+                GoalAlignmentInput(
                     totalForegroundDurationMillis = totalDuration,
                     apps = apps.map { app ->
                         ScoredAppUsage(
@@ -133,7 +156,69 @@ class UsageViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
-        initialValue = ScoreUiState.Loading
+        initialValue = GoalAlignmentUiState.Loading
+    )
+    val productivityUiState: StateFlow<ProductivityUiState> = uiState.map { usageState ->
+        if (usageState == UsageUiState.Loading) return@map ProductivityUiState.Loading
+        val usage = usageState as? UsageUiState.Content
+        ProductivityUiState.Result(
+            productivityScoreEngine.calculate(
+                ProductivityScoreInput(
+                    totalForegroundDurationMillis = usage?.totalDurationMillis ?: 0L,
+                    apps = usage?.apps.orEmpty().map { app ->
+                        ProductivityAppUsage(
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            durationMillis = app.foregroundDurationMillis,
+                            openCount = app.openCount,
+                            category = app.category
+                        )
+                    }
+                )
+            )
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ProductivityUiState.Loading
+    )
+    val insightUiState: StateFlow<InsightUiState> = combine(
+        uiState,
+        goalUiState,
+        productivityUiState
+    ) { usageState, goalState, productivityState ->
+        if (
+            usageState == UsageUiState.Loading ||
+            goalState == GoalUiState.Loading ||
+            productivityState == ProductivityUiState.Loading
+        ) {
+            return@combine InsightUiState.Loading
+        }
+        val usage = usageState as? UsageUiState.Content
+        val progress = (goalState as? GoalUiState.Content)?.progress.orEmpty()
+        val productivity = (productivityState as? ProductivityUiState.Result)?.productivity
+        InsightUiState.Content(
+            insightEngine.generate(
+                InsightInput(
+                    totalForegroundDurationMillis = usage?.totalDurationMillis ?: 0L,
+                    apps = usage?.apps.orEmpty().map { app ->
+                        InsightAppUsage(
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            durationMillis = app.foregroundDurationMillis,
+                            openCount = app.openCount,
+                            category = app.category
+                        )
+                    },
+                    goalProgress = progress,
+                    productivityScoreResult = productivity
+                )
+            )
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = InsightUiState.Loading
     )
 
     private var refreshJob: Job? = null

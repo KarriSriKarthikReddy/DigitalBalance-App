@@ -37,7 +37,11 @@ import com.digitalbalance.app.domain.goal.GoalProgress
 import com.digitalbalance.app.domain.goal.GoalType
 import com.digitalbalance.app.ui.components.AppIcon
 import com.digitalbalance.app.ui.components.LoadingContent
+import com.digitalbalance.app.ui.components.PremiumCard
+import com.digitalbalance.app.ui.components.ScreenHeader
+import com.digitalbalance.app.ui.components.StatusPill
 import com.digitalbalance.app.ui.components.usageDuration
+import com.digitalbalance.app.ui.theme.digitalBalanceColors
 import com.digitalbalance.app.ui.usage.GoalUiState
 
 @Composable
@@ -90,15 +94,9 @@ fun GoalsScreen(
     ) {
         item {
             TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_settings)) }
-            Text(
-                text = stringResource(R.string.goals_title),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.goals_description),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ScreenHeader(
+                title = stringResource(R.string.goals_title),
+                subtitle = stringResource(R.string.goals_description)
             )
         }
         when (state) {
@@ -134,12 +132,8 @@ private fun GoalProgressCard(
     onDelete: () -> Unit
 ) {
     val goal = progress.goal
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
+    val progressColor = goalProgressColor(progress)
+    PremiumCard(Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -171,17 +165,14 @@ private fun GoalProgressCard(
                 )
                 LinearProgressIndicator(
                     progress = { (progress.progressFraction ?: 0f).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    color = progressColor,
+                    trackColor = progressColor.copy(alpha = 0.14f)
                 )
             }
-            Text(
-                text = if (goal.type.isMinimumTarget) {
-                    stringResource(R.string.daily_target)
-                } else {
-                    stringResource(R.string.daily_limit_or_target)
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            StatusPill(
+                text = stringResource(if (goal.type.isMinimumTarget) R.string.daily_target else R.string.daily_limit),
+                color = progressColor
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onEdit) { Text(stringResource(R.string.edit)) }
@@ -193,12 +184,7 @@ private fun GoalProgressCard(
 
 @Composable
 private fun GoalEmptyState(onAdd: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
+    PremiumCard(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         Column(
             modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -426,3 +412,12 @@ private fun SelectableCard(
 
 private const val MILLIS_PER_MINUTE = 60_000L
 private const val MAX_GOAL_MINUTES = 99_999L
+
+@Composable
+private fun goalProgressColor(progress: GoalProgress) = when {
+    progress.progressFraction == null -> MaterialTheme.digitalBalanceColors.informational
+    progress.goal.type.isMinimumTarget -> MaterialTheme.digitalBalanceColors.productive
+    progress.progressFraction > 1f -> MaterialTheme.digitalBalanceColors.exceeded
+    progress.progressFraction >= 0.8f -> MaterialTheme.digitalBalanceColors.warning
+    else -> MaterialTheme.digitalBalanceColors.positive
+}

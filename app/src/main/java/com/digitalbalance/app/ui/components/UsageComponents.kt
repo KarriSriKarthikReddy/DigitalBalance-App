@@ -1,6 +1,7 @@
 package com.digitalbalance.app.ui.components
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.digitalbalance.app.R
 import com.digitalbalance.app.data.usage.AppUsage
 import com.digitalbalance.app.ui.category.labelRes
+import com.digitalbalance.app.ui.theme.accentColor
 
 @Composable
 fun AppIcon(
@@ -39,7 +42,7 @@ fun AppIcon(
 ) {
     val bitmap = usage.icon
     if (bitmap != null) {
-        Surface(modifier = modifier.size(size), shape = MaterialTheme.shapes.medium) {
+        Surface(modifier = modifier.size(size), shape = MaterialTheme.shapes.medium, tonalElevation = 1.dp) {
             Image(
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = usage.appName,
@@ -68,8 +71,10 @@ fun CompactAppRow(
     usage: AppUsage,
     modifier: Modifier = Modifier,
     showOpenCount: Boolean = false,
-    showCategory: Boolean = false
+    showCategory: Boolean = false,
+    maxDurationMillis: Long? = null
 ) {
+    val categoryColor = usage.category.accentColor()
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -98,11 +103,27 @@ fun CompactAppRow(
                 )
             }
             if (showCategory) {
-                Text(
-                    text = stringResource(usage.category.labelRes()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CategoryDot(categoryColor, size = 7.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(usage.category.labelRes()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (maxDurationMillis != null && maxDurationMillis > 0L) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(3.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth(
+                            (usage.foregroundDurationMillis.toFloat() / maxDurationMillis).coerceIn(0f, 1f)
+                        ).height(3.dp).background(categoryColor, CircleShape)
+                    )
+                }
             }
         }
         Text(

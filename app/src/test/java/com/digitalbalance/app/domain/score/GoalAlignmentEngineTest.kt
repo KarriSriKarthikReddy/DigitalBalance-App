@@ -11,14 +11,14 @@ import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-class ProductivityScoreEngineTest {
-    private val engine = ProductivityScoreEngine()
+class GoalAlignmentEngineTest {
+    private val engine = GoalAlignmentEngine()
 
     @Test
     fun `no goals configured returns not enough data`() {
         val result = calculate(apps = listOf(app("work", 60, AppCategory.Productivity)))
 
-        assertEquals(ProductivityScoreStatus.NotEnoughData, result.status)
+        assertEquals(GoalAlignmentStatus.NotEnoughData, result.status)
         assertNull(result.score)
     }
 
@@ -124,7 +124,7 @@ class ProductivityScoreEngineTest {
             goals = listOf(goal(GoalType.ProductiveTime, 60))
         )
 
-        assertEquals(ProductivityScoreStatus.NotEnoughData, result.status)
+        assertEquals(GoalAlignmentStatus.NotEnoughData, result.status)
         assertNull(result.score)
         assertEquals(1.0 / 6.0, result.coverage.classificationCoverage, 0.001)
     }
@@ -165,7 +165,7 @@ class ProductivityScoreEngineTest {
 
         assertReady(result)
         assertEquals(1, result.components.size)
-        assertEquals(ScorePolicy.SOCIAL_LIMIT_WEIGHT, result.totalActiveWeight, 0.0)
+        assertEquals(GoalAlignmentPolicy.SOCIAL_LIMIT_WEIGHT, result.totalActiveWeight, 0.0)
         assertEquals(100, result.score)
     }
 
@@ -299,9 +299,9 @@ class ProductivityScoreEngineTest {
         )
 
         assertReady(result)
-        assertEquals(ScorePolicy.PER_APP_LIMITS_TOTAL_WEIGHT, result.totalActiveWeight, 0.0)
+        assertEquals(GoalAlignmentPolicy.PER_APP_LIMITS_TOTAL_WEIGHT, result.totalActiveWeight, 0.0)
         result.components.forEach {
-            assertEquals(ScorePolicy.PER_APP_LIMITS_TOTAL_WEIGHT / 2.0, it.activeWeight, 0.0)
+            assertEquals(GoalAlignmentPolicy.PER_APP_LIMITS_TOTAL_WEIGHT / 2.0, it.activeWeight, 0.0)
         }
     }
 
@@ -327,8 +327,8 @@ class ProductivityScoreEngineTest {
     private fun calculate(
         apps: List<ScoredAppUsage> = emptyList(),
         goals: List<DigitalGoal> = emptyList()
-    ): ProductivityScoreResult = engine.calculate(
-        ProductivityScoreInput(
+    ): GoalAlignmentResult = engine.calculate(
+        GoalAlignmentInput(
             totalForegroundDurationMillis = apps.sumOf(ScoredAppUsage::durationMillis),
             apps = apps,
             goals = goals
@@ -357,8 +357,8 @@ class ProductivityScoreEngineTest {
 
     private fun minutes(value: Long): Long = value * 60_000L
 
-    private fun assertReady(result: ProductivityScoreResult) {
-        assertEquals(ProductivityScoreStatus.Ready, result.status)
+    private fun assertReady(result: GoalAlignmentResult) {
+        assertEquals(GoalAlignmentStatus.Ready, result.status)
         assertNotNull(result.score)
     }
 }

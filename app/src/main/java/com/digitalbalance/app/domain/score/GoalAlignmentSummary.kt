@@ -1,13 +1,13 @@
 package com.digitalbalance.app.domain.score
 
-enum class ProductivityScoreSummary {
+enum class GoalAlignmentSummary {
     WithinAllLimits,
     GoalsProgressing,
     LimitsExceeded,
     ProductiveTargetInProgress
 }
 
-fun ProductivityScoreResult.overallSummary(): ProductivityScoreSummary {
+fun GoalAlignmentResult.overallSummary(): GoalAlignmentSummary {
     val limitComponents = components.filter { component ->
         component.kind != ScoreComponentKind.ProductiveGoal
     }
@@ -16,11 +16,11 @@ fun ProductivityScoreResult.overallSummary(): ProductivityScoreSummary {
     }
     return when {
         limitComponents.any { it.actualDurationMillis > it.targetDurationMillis } ->
-            ProductivityScoreSummary.LimitsExceeded
+            GoalAlignmentSummary.LimitsExceeded
         productiveComponent != null &&
             productiveComponent.actualDurationMillis < productiveComponent.targetDurationMillis ->
-            ProductivityScoreSummary.ProductiveTargetInProgress
-        productiveComponent != null -> ProductivityScoreSummary.GoalsProgressing
-        else -> ProductivityScoreSummary.WithinAllLimits
+            GoalAlignmentSummary.ProductiveTargetInProgress
+        productiveComponent != null -> GoalAlignmentSummary.GoalsProgressing
+        else -> GoalAlignmentSummary.WithinAllLimits
     }
 }

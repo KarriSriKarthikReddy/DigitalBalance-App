@@ -33,7 +33,12 @@ import com.digitalbalance.app.ui.components.AppIcon
 import com.digitalbalance.app.ui.components.CompactAppRow
 import com.digitalbalance.app.ui.components.LoadingContent
 import com.digitalbalance.app.ui.components.MessageContent
+import com.digitalbalance.app.ui.components.PremiumCard
+import com.digitalbalance.app.ui.components.ScreenHeader
+import com.digitalbalance.app.ui.components.StatusPill
 import com.digitalbalance.app.ui.components.usageDuration
+import com.digitalbalance.app.ui.theme.DigitalBalanceSpacing
+import com.digitalbalance.app.ui.theme.accentColor
 import com.digitalbalance.app.ui.usage.UsagePermissionCard
 import com.digitalbalance.app.ui.usage.UsageUiState
 
@@ -63,19 +68,13 @@ fun AppsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+        contentPadding = PaddingValues(horizontal = DigitalBalanceSpacing.screen, vertical = DigitalBalanceSpacing.section),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Text(
-                text = stringResource(R.string.all_apps_title),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(R.string.all_apps_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ScreenHeader(
+                title = stringResource(R.string.all_apps_title),
+                subtitle = stringResource(R.string.all_apps_subtitle)
             )
         }
 
@@ -100,10 +99,20 @@ fun AppsScreen(
                     onAction = onRefresh
                 )
             }
-            is UsageUiState.Content -> items(
-                items = state.apps,
-                key = AppUsage::packageName
-            ) { usage ->
+            is UsageUiState.Content -> {
+                item {
+                    PremiumCard(Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            horizontalArrangement = Arrangement.SpaceAround
+                        ) {
+                            DetailMetric(stringResource(R.string.foreground_usage_short), usageDuration(state.totalDurationMillis), Modifier.weight(1f))
+                            DetailMetric(stringResource(R.string.apps_short), state.apps.size.toString(), Modifier.weight(1f))
+                            DetailMetric(stringResource(R.string.total_opens), state.apps.sumOf { it.openCount }.toString(), Modifier.weight(1f))
+                        }
+                    }
+                }
+                items(items = state.apps, key = AppUsage::packageName) { usage ->
                 Card(
                     onClick = { selectedPackage = usage.packageName },
                     modifier = Modifier.fillMaxWidth(),
@@ -115,9 +124,11 @@ fun AppsScreen(
                         usage = usage,
                         modifier = Modifier.padding(horizontal = 16.dp),
                         showOpenCount = true,
-                        showCategory = true
+                        showCategory = true,
+                        maxDurationMillis = state.apps.firstOrNull()?.foregroundDurationMillis
                     )
                 }
+            }
             }
         }
     }
@@ -153,20 +164,16 @@ private fun AppDetail(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
+                    StatusPill(
                         text = stringResource(usage.category.labelRes()),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = usage.category.accentColor()
                     )
                 }
             }
         }
         item {
-            Card(
+            PremiumCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -220,11 +227,7 @@ private fun AppDetail(
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                     )
                     if (selected) {
-                        Text(
-                            text = stringResource(R.string.selected),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        StatusPill(stringResource(R.string.category_selected), category.accentColor())
                     }
                 }
             }
@@ -233,8 +236,8 @@ private fun AppDetail(
 }
 
 @Composable
-private fun DetailMetric(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+private fun DetailMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,

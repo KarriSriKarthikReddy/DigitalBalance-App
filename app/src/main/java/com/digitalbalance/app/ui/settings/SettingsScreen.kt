@@ -12,10 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +21,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.digitalbalance.app.R
+import com.digitalbalance.app.ui.components.PremiumCard
+import com.digitalbalance.app.ui.components.ScreenHeader
+import com.digitalbalance.app.ui.components.StatusPill
+import com.digitalbalance.app.ui.theme.DigitalBalanceSpacing
+import com.digitalbalance.app.ui.theme.digitalBalanceColors
 import com.digitalbalance.app.ui.usage.GoalUiState
 import com.digitalbalance.app.ui.usage.UsageUiState
 
@@ -34,102 +36,84 @@ fun SettingsScreen(
     androidVersion: String,
     onOpenUsageSettings: () -> Unit,
     onOpenGoals: () -> Unit,
+    onOpenCategories: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+        contentPadding = PaddingValues(
+            horizontal = DigitalBalanceSpacing.screen,
+            vertical = DigitalBalanceSpacing.section
+        ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text(
-                text = stringResource(R.string.nav_settings),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+            ScreenHeader(
+                title = stringResource(R.string.nav_settings),
+                subtitle = stringResource(R.string.settings_subtitle)
             )
         }
         item {
-            SettingsCard(title = stringResource(R.string.settings_usage_access)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            SettingsCard(stringResource(R.string.settings_personalization)) {
+                SettingsActionRow(
+                    title = stringResource(R.string.goals_title),
+                    description = when (goalState) {
+                        GoalUiState.Loading -> stringResource(R.string.goals_loading)
+                        GoalUiState.Empty -> stringResource(R.string.no_goals_settings)
+                        is GoalUiState.Content -> stringResource(R.string.goals_count, goalState.progress.size)
+                    },
+                    action = stringResource(R.string.manage_goals),
+                    onClick = onOpenGoals
+                )
+                SettingsActionRow(
+                    title = stringResource(R.string.categories_title),
+                    description = stringResource(R.string.categories_settings_description),
+                    action = stringResource(R.string.review_categories),
+                    onClick = onOpenCategories
+                )
+            }
+        }
+        item {
+            SettingsCard(stringResource(R.string.settings_usage_access)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = stringResource(R.string.special_access_type),
+                        stringResource(R.string.special_access_type),
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyLarge
                     )
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = when (state) {
-                            UsageUiState.PermissionRequired -> MaterialTheme.colorScheme.errorContainer
-                            UsageUiState.Loading -> MaterialTheme.colorScheme.surfaceContainerHighest
-                            else -> MaterialTheme.colorScheme.primaryContainer
+                    StatusPill(
+                        usageAccessLabel(state),
+                        when (state) {
+                            UsageUiState.PermissionRequired -> MaterialTheme.digitalBalanceColors.exceeded
+                            UsageUiState.Loading -> MaterialTheme.digitalBalanceColors.informational
+                            else -> MaterialTheme.digitalBalanceColors.positive
                         }
-                    ) {
-                        Text(
-                            text = usageAccessLabel(state),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    )
                 }
-                Spacer(Modifier.height(16.dp))
                 Button(
                     onClick = onOpenUsageSettings,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.manage_usage_access))
-                }
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
+                ) { Text(stringResource(R.string.manage_usage_access)) }
             }
         }
         item {
-            SettingsCard(title = stringResource(R.string.goals_title)) {
+            SettingsCard(stringResource(R.string.privacy_about_title)) {
                 Text(
-                    text = when (goalState) {
-                        GoalUiState.Loading -> stringResource(R.string.goals_loading)
-                        GoalUiState.Empty -> stringResource(R.string.no_goals_settings)
-                        is GoalUiState.Content -> stringResource(
-                            R.string.goals_count,
-                            goalState.progress.size
-                        )
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
+                    stringResource(R.string.privacy_settings_description),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(16.dp))
-                Button(
-                    onClick = onOpenGoals,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.manage_goals))
-                }
-            }
-        }
-        item {
-            SettingsCard(title = stringResource(R.string.privacy_title)) {
+                Spacer(Modifier.height(18.dp))
+                Text(stringResource(R.string.appearance_title), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    text = stringResource(R.string.privacy_settings_description),
-                    style = MaterialTheme.typography.bodyLarge,
+                    stringResource(R.string.appearance_system),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        }
-        item {
-            SettingsCard(title = stringResource(R.string.appearance_title)) {
+                Spacer(Modifier.height(18.dp))
                 Text(
-                    text = stringResource(R.string.appearance_system),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        item {
-            SettingsCard(title = stringResource(R.string.system_title)) {
-                Text(
-                    text = stringResource(R.string.android_version, androidVersion),
-                    style = MaterialTheme.typography.bodyLarge,
+                    stringResource(R.string.android_version, androidVersion),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -138,25 +122,22 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsCard(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    PremiumCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             content()
         }
+    }
+}
+
+@Composable
+private fun SettingsActionRow(title: String, description: String, action: String, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button(onClick, Modifier.fillMaxWidth().padding(top = 12.dp)) { Text(action) }
     }
 }
 

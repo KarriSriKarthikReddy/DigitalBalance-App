@@ -4,6 +4,9 @@ import android.os.Build
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -18,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.digitalbalance.app.R
 import com.digitalbalance.app.ui.apps.AppsScreen
 import com.digitalbalance.app.ui.focus.FocusScreen
@@ -28,9 +32,12 @@ import com.digitalbalance.app.ui.settings.SettingsScreen
 import com.digitalbalance.app.ui.score.ScoreDetailsScreen
 import com.digitalbalance.app.ui.usage.UsageUiState
 import com.digitalbalance.app.ui.usage.GoalUiState
-import com.digitalbalance.app.ui.usage.ScoreUiState
+import com.digitalbalance.app.ui.usage.GoalAlignmentUiState
+import com.digitalbalance.app.ui.usage.ProductivityUiState
 import com.digitalbalance.app.domain.category.AppCategory
 import com.digitalbalance.app.domain.goal.GoalType
+import com.digitalbalance.app.domain.insight.InsightActionType
+import com.digitalbalance.app.ui.usage.InsightUiState
 
 private enum class AppDestination(
     @param:StringRes val labelRes: Int,
@@ -47,7 +54,9 @@ private enum class AppDestination(
 fun DigitalBalanceApp(
     usageState: UsageUiState,
     goalState: GoalUiState,
-    scoreState: ScoreUiState,
+    goalAlignmentState: GoalAlignmentUiState,
+    productivityState: ProductivityUiState,
+    insightState: InsightUiState,
     onOpenUsageSettings: () -> Unit,
     onRefreshUsage: () -> Unit,
     onCategoryChanged: (String, AppCategory) -> Unit,
@@ -57,11 +66,26 @@ fun DigitalBalanceApp(
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     var goalsOpen by rememberSaveable { mutableStateOf(false) }
     var scoreDetailsOpen by rememberSaveable { mutableStateOf(false) }
+    val handleInsightAction: (InsightActionType) -> Unit = { action ->
+        when (action) {
+            InsightActionType.OpenGoals -> {
+                destination = AppDestination.Settings
+                goalsOpen = true
+            }
+            InsightActionType.OpenApps,
+            InsightActionType.ReviewCategories -> destination = AppDestination.Apps
+            InsightActionType.OpenFocus -> destination = AppDestination.Focus
+        }
+        scoreDetailsOpen = false
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 0.dp
+            ) {
                 AppDestination.entries.forEach { item ->
                     val label = stringResource(item.labelRes)
                     NavigationBarItem(
@@ -72,9 +96,15 @@ fun DigitalBalanceApp(
                             scoreDetailsOpen = false
                         },
                         icon = {
+                            val iconSize by animateDpAsState(
+                                targetValue = if (destination == item) 26.dp else 23.dp,
+                                animationSpec = spring(),
+                                label = "navIcon"
+                            )
                             Icon(
                                 painter = painterResource(item.iconRes),
-                                contentDescription = label
+                                contentDescription = label,
+                                modifier = Modifier.size(iconSize)
                             )
                         },
                         label = { Text(label) }
@@ -87,7 +117,8 @@ fun DigitalBalanceApp(
         when (destination) {
             AppDestination.Home -> if (scoreDetailsOpen) {
                 ScoreDetailsScreen(
-                    state = scoreState,
+                    goalAlignmentState = goalAlignmentState,
+                    productivityState = productivityState,
                     onBack = { scoreDetailsOpen = false },
                     modifier = modifier
                 )
@@ -95,7 +126,9 @@ fun DigitalBalanceApp(
                 HomeScreen(
                     state = usageState,
                     goalState = goalState,
-                    scoreState = scoreState,
+                    goalAlignmentState = goalAlignmentState,
+                    productivityState = productivityState,
+                    insightState = insightState,
                     onOpenUsageSettings = onOpenUsageSettings,
                     onRefresh = onRefreshUsage,
                     onOpenApps = { destination = AppDestination.Apps },
@@ -105,6 +138,7 @@ fun DigitalBalanceApp(
                         goalsOpen = true
                     },
                     onOpenScore = { scoreDetailsOpen = true },
+                    onOpenInsights = { destination = AppDestination.Insights },
                     modifier = modifier
                 )
             }
@@ -115,7 +149,11 @@ fun DigitalBalanceApp(
                 onCategoryChanged = onCategoryChanged,
                 modifier = modifier
             )
-            AppDestination.Insights -> InsightsScreen(modifier)
+            AppDestination.Insights -> InsightsScreen(
+                state = insightState,
+                onAction = handleInsightAction,
+                modifier = modifier
+            )
             AppDestination.Focus -> FocusScreen(modifier)
             AppDestination.Settings -> if (goalsOpen) {
                 GoalsScreen(
@@ -133,6 +171,7 @@ fun DigitalBalanceApp(
                     androidVersion = Build.VERSION.RELEASE,
                     onOpenUsageSettings = onOpenUsageSettings,
                     onOpenGoals = { goalsOpen = true },
+                    onOpenCategories = { destination = AppDestination.Apps },
                     modifier = modifier
                 )
             }

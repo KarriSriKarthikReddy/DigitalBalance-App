@@ -10,13 +10,13 @@ data class ScoredAppUsage(
     val category: AppCategory
 )
 
-data class ProductivityScoreInput(
+data class GoalAlignmentInput(
     val totalForegroundDurationMillis: Long,
     val apps: List<ScoredAppUsage>,
     val goals: List<DigitalGoal>
 )
 
-enum class ProductivityScoreStatus {
+enum class GoalAlignmentStatus {
     Ready,
     NotEnoughData
 }
@@ -57,8 +57,8 @@ data class ScoreCoverage(
     val totalForegroundDurationMillis: Long
 )
 
-data class ProductivityScoreResult(
-    val status: ProductivityScoreStatus,
+data class GoalAlignmentResult(
+    val status: GoalAlignmentStatus,
     val score: Int?,
     val components: List<ScoreComponent>,
     val reasons: List<String>,

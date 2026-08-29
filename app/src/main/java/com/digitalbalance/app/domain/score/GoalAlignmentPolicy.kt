@@ -1,6 +1,6 @@
 package com.digitalbalance.app.domain.score
 
-object ScorePolicy {
+object GoalAlignmentPolicy {
     const val MIN_SCORE = 0.0
     const val MAX_SCORE = 100.0
 

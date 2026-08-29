@@ -8,4 +8,8 @@
         <item name="android:navigationBarColor">@color/launch_background</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <style name="Theme.DigitalBalance.Starting" parent="Theme.DigitalBalance">
+        <item name="android:windowBackground">@drawable/launch_screen</item>
+    </style>
 </resources>
