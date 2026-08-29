@@ -8,13 +8,19 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [DailyUsageEntity::class, CategoryOverrideEntity::class, GoalEntity::class],
-    version = 2,
+    entities = [
+        DailyUsageEntity::class,
+        CategoryOverrideEntity::class,
+        GoalEntity::class,
+        FocusSessionEntity::class
+    ],
+    version = 3,
     exportSchema = true
 )
 abstract class DigitalBalanceDatabase : RoomDatabase() {
     abstract fun usageDao(): UsageDao
     abstract fun goalDao(): GoalDao
+    abstract fun focusSessionDao(): FocusSessionDao
 
     companion object {
         @Volatile
@@ -26,7 +32,7 @@ abstract class DigitalBalanceDatabase : RoomDatabase() {
                     context.applicationContext,
                     DigitalBalanceDatabase::class.java,
                     "digital_balance.db"
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -40,6 +46,31 @@ abstract class DigitalBalanceDatabase : RoomDatabase() {
                         "`appName` TEXT, " +
                         "`updatedAtMillis` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`id`))"
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `focus_sessions` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`presetKey` TEXT NOT NULL, " +
+                        "`plannedDurationMillis` INTEGER NOT NULL, " +
+                        "`accumulatedFocusedMillis` INTEGER NOT NULL, " +
+                        "`startedAtEpochMillis` INTEGER NOT NULL, " +
+                        "`segmentStartedAtEpochMillis` INTEGER, " +
+                        "`segmentStartedElapsedRealtimeMillis` INTEGER, " +
+                        "`segmentBootEpochOffsetMillis` INTEGER, " +
+                        "`endedAtEpochMillis` INTEGER, " +
+                        "`statusKey` TEXT NOT NULL, " +
+                        "`reflectionKey` TEXT, " +
+                        "`updatedAtEpochMillis` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_focus_sessions_statusKey` " +
+                        "ON `focus_sessions` (`statusKey`)"
                 )
             }
         }

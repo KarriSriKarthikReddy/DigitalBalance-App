@@ -38,6 +38,10 @@ import com.digitalbalance.app.domain.category.AppCategory
 import com.digitalbalance.app.domain.goal.GoalType
 import com.digitalbalance.app.domain.insight.InsightActionType
 import com.digitalbalance.app.ui.usage.InsightUiState
+import com.digitalbalance.app.ui.focus.FocusUiState
+import com.digitalbalance.app.domain.focus.FocusLaunchSuggestion
+import com.digitalbalance.app.domain.focus.FocusPreset
+import com.digitalbalance.app.domain.focus.FocusReflection
 
 private enum class AppDestination(
     @param:StringRes val labelRes: Int,
@@ -57,11 +61,25 @@ fun DigitalBalanceApp(
     goalAlignmentState: GoalAlignmentUiState,
     productivityState: ProductivityUiState,
     insightState: InsightUiState,
+    focusState: FocusUiState,
     onOpenUsageSettings: () -> Unit,
     onRefreshUsage: () -> Unit,
     onCategoryChanged: (String, AppCategory) -> Unit,
     onSaveGoal: (GoalType, Long, String?, String?) -> Unit,
-    onDeleteGoal: (String) -> Unit
+    onDeleteGoal: (String) -> Unit,
+    onSelectFocusPreset: (FocusPreset) -> Unit,
+    onSelectFocusDuration: (Int) -> Unit,
+    onSelectCustomFocusDuration: () -> Unit,
+    onCustomFocusDurationChanged: (String) -> Unit,
+    onStartFocus: () -> Unit,
+    onPauseFocus: () -> Unit,
+    onResumeFocus: () -> Unit,
+    onStopFocus: () -> Unit,
+    onFocusReflectionChanged: (FocusReflection?) -> Unit,
+    onFocusDone: () -> Unit,
+    onStartAnotherFocus: () -> Unit,
+    onFocusTick: () -> Unit,
+    onPrepareFocusSuggestion: (FocusLaunchSuggestion) -> Unit
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     var goalsOpen by rememberSaveable { mutableStateOf(false) }
@@ -74,7 +92,10 @@ fun DigitalBalanceApp(
             }
             InsightActionType.OpenApps,
             InsightActionType.ReviewCategories -> destination = AppDestination.Apps
-            InsightActionType.OpenFocus -> destination = AppDestination.Focus
+            InsightActionType.OpenFocus -> {
+                FocusLaunchSuggestion.forInsightAction(action)?.let(onPrepareFocusSuggestion)
+                destination = AppDestination.Focus
+            }
         }
         scoreDetailsOpen = false
     }
@@ -154,7 +175,22 @@ fun DigitalBalanceApp(
                 onAction = handleInsightAction,
                 modifier = modifier
             )
-            AppDestination.Focus -> FocusScreen(modifier)
+            AppDestination.Focus -> FocusScreen(
+                state = focusState,
+                onSelectPreset = onSelectFocusPreset,
+                onSelectDuration = onSelectFocusDuration,
+                onSelectCustomDuration = onSelectCustomFocusDuration,
+                onCustomDurationChanged = onCustomFocusDurationChanged,
+                onStart = onStartFocus,
+                onPause = onPauseFocus,
+                onResume = onResumeFocus,
+                onStopEarly = onStopFocus,
+                onReflectionChanged = onFocusReflectionChanged,
+                onDone = onFocusDone,
+                onStartAnother = onStartAnotherFocus,
+                onTick = onFocusTick,
+                modifier = modifier
+            )
             AppDestination.Settings -> if (goalsOpen) {
                 GoalsScreen(
                     state = goalState,
