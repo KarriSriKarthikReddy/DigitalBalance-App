@@ -40,9 +40,11 @@ class MainActivity : ComponentActivity() {
             DigitalBalanceTheme {
                 val state by usageViewModel.uiState.collectAsState()
                 val goalState by usageViewModel.goalUiState.collectAsState()
+                val scoreState by usageViewModel.scoreUiState.collectAsState()
                 DigitalBalanceApp(
                     usageState = state,
                     goalState = goalState,
+                    scoreState = scoreState,
                     onOpenUsageSettings = ::openUsageAccessSettings,
                     onRefreshUsage = usageViewModel::refresh,
                     onCategoryChanged = usageViewModel::setCategory,

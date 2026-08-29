@@ -12,6 +12,8 @@ class UsageSessionReconstructor {
         var activePackage: String? = null
         var activeSince = 0L
         val activeActivityIds = mutableSetOf<String>()
+        var screenInteractive: Boolean? = null
+        var keyguardShown: Boolean? = null
         var unmatchedPauses = 0
         var ignoredEvents = 0
 
@@ -32,7 +34,10 @@ class UsageSessionReconstructor {
             activeActivityIds.clear()
         }
 
-        events.sortedBy(UsageEventRecord::timestampMillis).forEach { event ->
+        events.sortedWith(
+            compareBy<UsageEventRecord>(UsageEventRecord::timestampMillis)
+                .thenBy { eventPriority(it.kind) }
+        ).forEach { event ->
             if (event.timestampMillis !in rangeStartMillis..rangeEndMillis) {
                 ignoredEvents++
                 return@forEach
@@ -42,6 +47,8 @@ class UsageSessionReconstructor {
                 UsageEventKind.Resumed -> {
                     val packageName = event.packageName
                     if (packageName.isNullOrBlank()) {
+                        ignoredEvents++
+                    } else if (screenInteractive == false || keyguardShown == true) {
                         ignoredEvents++
                     } else if (activePackage != packageName) {
                         closeActive(event.timestampMillis, SessionEndReason.AppTransition)
@@ -72,9 +79,19 @@ class UsageSessionReconstructor {
                     }
                 }
 
-                UsageEventKind.StopAll -> {
+                UsageEventKind.ScreenNonInteractive -> {
+                    screenInteractive = false
                     closeActive(event.timestampMillis, SessionEndReason.ScreenInactive)
                 }
+
+                UsageEventKind.ScreenInteractive -> screenInteractive = true
+
+                UsageEventKind.KeyguardShown -> {
+                    keyguardShown = true
+                    closeActive(event.timestampMillis, SessionEndReason.KeyguardShown)
+                }
+
+                UsageEventKind.KeyguardHidden -> keyguardShown = false
             }
         }
 
@@ -85,5 +102,14 @@ class UsageSessionReconstructor {
             unmatchedPauseCount = unmatchedPauses,
             ignoredEventCount = ignoredEvents
         )
+    }
+
+    private fun eventPriority(kind: UsageEventKind): Int = when (kind) {
+        UsageEventKind.ScreenNonInteractive,
+        UsageEventKind.KeyguardShown -> 0
+        UsageEventKind.ScreenInteractive,
+        UsageEventKind.KeyguardHidden -> 1
+        UsageEventKind.Resumed -> 2
+        UsageEventKind.Paused -> 3
     }
 }

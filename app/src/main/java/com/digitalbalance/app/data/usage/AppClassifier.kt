@@ -72,10 +72,13 @@ class AppClassifier(context: Context) {
             ?.toString()
             ?.takeIf(String::isNotBlank)
             ?: packageName
-        if (debugLoggingEnabled && packageName == GOOGLE_SEARCH_PACKAGE) {
+        if (
+            debugLoggingEnabled &&
+            (packageName == GOOGLE_SEARCH_PACKAGE || (!isLaunchable && hasExportedForegroundActivity))
+        ) {
             Log.d(
                 DEBUG_TAG,
-                "GOOGLE_SEARCH_CLASSIFICATION launchable=$isLaunchable " +
+                "FOREGROUND_CLASSIFICATION package=$packageName launchable=$isLaunchable " +
                     "homeCapable=${packageName in homeCapablePackages} " +
                     "defaultHome=$isDefaultHome system=$isSystemApp " +
                     "exportedForegroundActivity=$hasExportedForegroundActivity " +

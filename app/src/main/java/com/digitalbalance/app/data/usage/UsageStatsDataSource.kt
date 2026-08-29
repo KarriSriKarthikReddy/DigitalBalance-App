@@ -105,6 +105,13 @@ class UsageStatsDataSource(context: Context) {
             while (usageEvents.hasNextEvent()) {
                 usageEvents.getNextEvent(event)
                 val kind = eventKind(event.eventType)
+                if (debugLoggingEnabled && kind != null) {
+                    Log.d(
+                        DEBUG_TAG,
+                        "RAW_USAGE_EVENT package=${event.packageName} type=${event.eventType} " +
+                            "mappedKind=$kind class=${event.className} timestampMs=${event.timeStamp}"
+                    )
+                }
                 if (debugLoggingEnabled && event.packageName == GOOGLE_SEARCH_PACKAGE) {
                     Log.d(
                         DEBUG_TAG,
@@ -165,8 +172,14 @@ class UsageStatsDataSource(context: Context) {
             eventType == resumedType -> UsageEventKind.Resumed
             eventType == pausedType -> UsageEventKind.Paused
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                (eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE ||
-                    eventType == UsageEvents.Event.KEYGUARD_SHOWN) -> UsageEventKind.StopAll
+                eventType == UsageEvents.Event.SCREEN_INTERACTIVE -> UsageEventKind.ScreenInteractive
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE ->
+                UsageEventKind.ScreenNonInteractive
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                eventType == UsageEvents.Event.KEYGUARD_SHOWN -> UsageEventKind.KeyguardShown
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                eventType == UsageEvents.Event.KEYGUARD_HIDDEN -> UsageEventKind.KeyguardHidden
             else -> null
         }
     }

@@ -12,12 +12,17 @@ import com.digitalbalance.app.domain.goal.DigitalGoal
 import com.digitalbalance.app.domain.goal.GoalProgress
 import com.digitalbalance.app.domain.goal.GoalProgressCalculator
 import com.digitalbalance.app.domain.goal.GoalType
+import com.digitalbalance.app.domain.score.ProductivityScoreEngine
+import com.digitalbalance.app.domain.score.ProductivityScoreInput
+import com.digitalbalance.app.domain.score.ProductivityScoreResult
+import com.digitalbalance.app.domain.score.ScoredAppUsage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,12 +44,25 @@ sealed interface GoalUiState {
     data class Content(val progress: List<GoalProgress>) : GoalUiState
 }
 
+sealed interface ScoreUiState {
+    data object Loading : ScoreUiState
+    data class Result(val score: ProductivityScoreResult) : ScoreUiState
+}
+
 class UsageViewModel(
     private val repository: UsageRepository,
     private val goalRepository: GoalRepository
 ) : ViewModel() {
     private val goalCalculator = GoalProgressCalculator()
+    private val scoreEngine = ProductivityScoreEngine()
     private val baseState = MutableStateFlow<UsageUiState>(UsageUiState.Loading)
+    private val goals: StateFlow<List<DigitalGoal>?> = goalRepository.observeGoals()
+        .map<List<DigitalGoal>, List<DigitalGoal>?> { it }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null
+        )
     val uiState: StateFlow<UsageUiState> = combine(
         baseState,
         repository.observeCategoryOverrides()
@@ -67,8 +85,9 @@ class UsageViewModel(
     )
     val goalUiState: StateFlow<GoalUiState> = combine(
         uiState,
-        goalRepository.observeGoals()
+        goals
     ) { usageState, goals ->
+        if (goals == null) return@combine GoalUiState.Loading
         if (goalCalculator.noGoals(goals)) return@combine GoalUiState.Empty
         val apps = when (usageState) {
             is UsageUiState.Content -> usageState.apps
@@ -85,6 +104,36 @@ class UsageViewModel(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
         initialValue = GoalUiState.Loading
+    )
+    val scoreUiState: StateFlow<ScoreUiState> = combine(uiState, goals) { usageState, goals ->
+        if (goals == null || usageState == UsageUiState.Loading) {
+            return@combine ScoreUiState.Loading
+        }
+        val apps = (usageState as? UsageUiState.Content)?.apps.orEmpty()
+        val totalDuration = when (usageState) {
+            is UsageUiState.Content -> usageState.totalDurationMillis
+            else -> 0L
+        }
+        ScoreUiState.Result(
+            scoreEngine.calculate(
+                ProductivityScoreInput(
+                    totalForegroundDurationMillis = totalDuration,
+                    apps = apps.map { app ->
+                        ScoredAppUsage(
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            durationMillis = app.foregroundDurationMillis,
+                            category = app.category
+                        )
+                    },
+                    goals = goals
+                )
+            )
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ScoreUiState.Loading
     )
 
     private var refreshJob: Job? = null

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.DigitalBalance" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.DigitalBalance" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/launch_background</item>
+        <item name="android:colorAccent">@color/launch_accent</item>
+        <item name="android:statusBarColor">@color/launch_background</item>
+        <item name="android:navigationBarColor">@color/launch_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
 </resources>

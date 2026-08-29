@@ -90,7 +90,7 @@ class UsageSessionReconstructorTest {
     fun screenInactiveClosesCurrentSession() {
         val result = reconstruct(
             resumed("app.a", 100),
-            UsageEventRecord(null, 450, UsageEventKind.StopAll),
+            UsageEventRecord(null, 450, UsageEventKind.ScreenNonInteractive),
             end = 1_000
         )
 
@@ -101,6 +101,80 @@ class UsageSessionReconstructorTest {
             450,
             SessionEndReason.ScreenInactive
         )
+    }
+
+    @Test
+    fun activityResumedWhileKeyguardIsShownIsNotCounted() {
+        val result = reconstruct(
+            UsageEventRecord(null, 100, UsageEventKind.ScreenInteractive),
+            UsageEventRecord(null, 110, UsageEventKind.KeyguardShown),
+            resumed("oem.lock.surface", 120),
+            paused("oem.lock.surface", 600),
+            UsageEventRecord(null, 610, UsageEventKind.KeyguardHidden),
+            end = 1_000
+        )
+
+        assertEquals(emptyList<ForegroundSession>(), result.sessions)
+    }
+
+    @Test
+    fun keyguardClosesAnExistingForegroundSessionAndBlocksLockSurface() {
+        val result = reconstruct(
+            resumed("app.user", 100),
+            UsageEventRecord(null, 400, UsageEventKind.KeyguardShown),
+            resumed("oem.lock.surface", 410),
+            UsageEventRecord(null, 800, UsageEventKind.KeyguardHidden),
+            end = 1_000
+        )
+
+        assertSession(
+            result.sessions.single(),
+            "app.user",
+            100,
+            400,
+            SessionEndReason.KeyguardShown
+        )
+    }
+
+    @Test
+    fun normalForegroundSessionAfterUnlockIsStillCounted() {
+        val result = reconstruct(
+            UsageEventRecord(null, 100, UsageEventKind.ScreenInteractive),
+            UsageEventRecord(null, 110, UsageEventKind.KeyguardShown),
+            resumed("oem.lock.surface", 120),
+            UsageEventRecord(null, 600, UsageEventKind.KeyguardHidden),
+            resumed("app.user", 610),
+            paused("app.user", 900),
+            end = 1_000
+        )
+
+        assertSession(result.sessions.single(), "app.user", 610, 900, SessionEndReason.Paused)
+    }
+
+    @Test
+    fun activityResumedWhileScreenIsNonInteractiveWaitsForInteractiveState() {
+        val result = reconstruct(
+            UsageEventRecord(null, 100, UsageEventKind.ScreenNonInteractive),
+            resumed("background.surface", 120),
+            UsageEventRecord(null, 500, UsageEventKind.ScreenInteractive),
+            resumed("app.user", 510),
+            paused("app.user", 800),
+            end = 1_000
+        )
+
+        assertSession(result.sessions.single(), "app.user", 510, 800, SessionEndReason.Paused)
+    }
+
+    @Test
+    fun keyguardStateWinsWhenStateEventsShareATimestamp() {
+        val result = reconstruct(
+            resumed("oem.lock.surface", 100),
+            UsageEventRecord(null, 100, UsageEventKind.ScreenInteractive),
+            UsageEventRecord(null, 100, UsageEventKind.KeyguardShown),
+            end = 1_000
+        )
+
+        assertEquals(emptyList<ForegroundSession>(), result.sessions)
     }
 
     @Test

@@ -3,7 +3,10 @@ package com.digitalbalance.app.data.usage
 enum class UsageEventKind {
     Resumed,
     Paused,
-    StopAll
+    ScreenInteractive,
+    ScreenNonInteractive,
+    KeyguardShown,
+    KeyguardHidden
 }
 
 data class UsageEventRecord(
@@ -17,6 +20,7 @@ enum class SessionEndReason {
     Paused,
     AppTransition,
     ScreenInactive,
+    KeyguardShown,
     EndOfRange
 }
 
