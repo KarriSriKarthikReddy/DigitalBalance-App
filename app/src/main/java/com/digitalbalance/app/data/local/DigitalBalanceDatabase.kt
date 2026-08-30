@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         GoalEntity::class,
         FocusSessionEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = true
 )
 abstract class DigitalBalanceDatabase : RoomDatabase() {
@@ -32,7 +32,8 @@ abstract class DigitalBalanceDatabase : RoomDatabase() {
                     context.applicationContext,
                     DigitalBalanceDatabase::class.java,
                     "digital_balance.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+                    .also { instance = it }
             }
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -72,6 +73,40 @@ abstract class DigitalBalanceDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_focus_sessions_statusKey` " +
                         "ON `focus_sessions` (`statusKey`)"
                 )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purpose_attributions` (" +
+                        "`id` TEXT NOT NULL, `packageName` TEXT NOT NULL, `dateKey` TEXT NOT NULL, " +
+                        "`scopeKey` TEXT NOT NULL, `sessionStartMillis` INTEGER, " +
+                        "`sessionEndMillis` INTEGER, `purposeKey` TEXT NOT NULL, " +
+                        "`provenanceKey` TEXT NOT NULL, `updatedAtMillis` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_purpose_attributions_dateKey` " +
+                        "ON `purpose_attributions` (`dateKey`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_purpose_attributions_packageName` " +
+                        "ON `purpose_attributions` (`packageName`)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `purpose_defaults` (" +
+                        "`packageName` TEXT NOT NULL, `purposeKey` TEXT NOT NULL, " +
+                        "`effectiveFromMillis` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`packageName`))"
+                )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `purpose_attributions`")
+                db.execSQL("DROP TABLE IF EXISTS `purpose_defaults`")
             }
         }
     }

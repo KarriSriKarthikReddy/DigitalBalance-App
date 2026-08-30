@@ -19,28 +19,40 @@ import com.digitalbalance.app.ui.DigitalBalanceApp
 import com.digitalbalance.app.ui.theme.DigitalBalanceTheme
 import com.digitalbalance.app.ui.usage.UsageViewModel
 import com.digitalbalance.app.ui.focus.FocusViewModel
+import com.digitalbalance.app.ui.insights.AnalyticsViewModel
 
 class MainActivity : ComponentActivity() {
+    private val database by lazy { DigitalBalanceDatabase.getInstance(applicationContext) }
+    private val usageRepository by lazy {
+        UsageRepository(
+            systemUsage = UsageStatsDataSource(applicationContext),
+            usageDao = database.usageDao()
+        )
+    }
+    private val focusRepository by lazy { FocusRepository(database.focusSessionDao()) }
+
     private val usageViewModel: UsageViewModel by lazy {
-        val database = DigitalBalanceDatabase.getInstance(applicationContext)
         ViewModelProvider(
             this,
             UsageViewModel.factory(
-                UsageRepository(
-                    systemUsage = UsageStatsDataSource(applicationContext),
-                    usageDao = database.usageDao()
-                ),
+                usageRepository,
                 GoalRepository(database.goalDao())
             )
         )[UsageViewModel::class.java]
     }
 
     private val focusViewModel: FocusViewModel by lazy {
-        val database = DigitalBalanceDatabase.getInstance(applicationContext)
         ViewModelProvider(
             this,
-            FocusViewModel.factory(FocusRepository(database.focusSessionDao()))
+            FocusViewModel.factory(focusRepository)
         )[FocusViewModel::class.java]
+    }
+
+    private val analyticsViewModel: AnalyticsViewModel by lazy {
+        ViewModelProvider(
+            this,
+            AnalyticsViewModel.factory(usageRepository, focusRepository)
+        )[AnalyticsViewModel::class.java]
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,6 +66,7 @@ class MainActivity : ComponentActivity() {
                 val productivityState by usageViewModel.productivityUiState.collectAsState()
                 val insightState by usageViewModel.insightUiState.collectAsState()
                 val focusState by focusViewModel.uiState.collectAsState()
+                val analyticsState by analyticsViewModel.uiState.collectAsState()
                 DigitalBalanceApp(
                     usageState = state,
                     goalState = goalState,
@@ -61,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     productivityState = productivityState,
                     insightState = insightState,
                     focusState = focusState,
+                    analyticsState = analyticsState,
                     onOpenUsageSettings = ::openUsageAccessSettings,
                     onRefreshUsage = usageViewModel::refresh,
                     onCategoryChanged = usageViewModel::setCategory,
@@ -78,7 +92,8 @@ class MainActivity : ComponentActivity() {
                     onFocusDone = focusViewModel::done,
                     onStartAnotherFocus = focusViewModel::startAnother,
                     onFocusTick = focusViewModel::tick,
-                    onPrepareFocusSuggestion = focusViewModel::applySuggestion
+                    onPrepareFocusSuggestion = focusViewModel::applySuggestion,
+                    onAnalyticsPeriodSelected = analyticsViewModel::selectPeriod
                 )
             }
         }
@@ -87,6 +102,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         usageViewModel.refresh()
+        analyticsViewModel.refreshDate()
     }
 
     private fun openUsageAccessSettings() {

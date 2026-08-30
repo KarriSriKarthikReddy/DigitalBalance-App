@@ -79,6 +79,57 @@ class GoalProgressCalculatorTest {
         assertEquals(null, progress.progressFraction)
     }
 
+    @Test
+    fun `digital balance is ignored by category goals`() {
+        val ownUsageByCategory = listOf(
+            GoalType.ProductiveTime to AppCategory.Productivity,
+            GoalType.SocialMediaLimit to AppCategory.Social,
+            GoalType.EntertainmentLimit to AppCategory.Entertainment
+        )
+
+        ownUsageByCategory.forEach { (type, category) ->
+            val progress = calculator.calculate(
+                listOf(goal(type, type.storageKey)),
+                listOf(app("com.digitalbalance.app", 80L, category)),
+                80L
+            ).single()
+            assertEquals(0L, progress.currentDurationMillis)
+        }
+    }
+
+    @Test
+    fun `overall goal includes digital balance in foreground total`() {
+        val progress = calculator.calculate(
+            listOf(goal(GoalType.OverallForegroundUsage, "overall")),
+            listOf(
+                app("com.instagram.android", 60L, AppCategory.Social),
+                app("com.digitalbalance.app", 20L, AppCategory.Utility)
+            ),
+            80L
+        ).single()
+
+        assertEquals(80L, progress.currentDurationMillis)
+    }
+
+    @Test
+    fun `explicit per app goal can target digital balance`() {
+        val ownGoal = DigitalGoal(
+            id = DigitalGoal.idFor(GoalType.AppDailyLimit, "com.digitalbalance.app"),
+            type = GoalType.AppDailyLimit,
+            targetDurationMillis = 100L,
+            packageName = "com.digitalbalance.app",
+            appName = "DigitalBalance"
+        )
+        val progress = calculator.calculate(
+            listOf(ownGoal),
+            listOf(app("com.digitalbalance.app", 20L, AppCategory.Utility)),
+            20L
+        ).single()
+
+        assertEquals(20L, progress.currentDurationMillis)
+        assertEquals(0.2f, progress.progressFraction)
+    }
+
     private fun goal(type: GoalType, id: String) = DigitalGoal(
         id = id,
         type = type,

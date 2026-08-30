@@ -203,6 +203,21 @@ class ProductivityScoreEngineTest {
         assertTrue(abs(first.score!! - shifted.score!!) <= 2)
     }
 
+    @Test
+    fun digitalBalanceOwnUsageCannotIncreaseProductivityScore() {
+        val baseline = calculate(listOf(app("video", hours(2), AppCategory.Entertainment, 4)))
+        val withOwnUsage = calculate(
+            listOf(
+                app("video", hours(2), AppCategory.Entertainment, 4),
+                app("com.digitalbalance.app", hours(4), AppCategory.Productivity, 20)
+            )
+        )
+
+        assertEquals(baseline.score, withOwnUsage.score)
+        assertEquals(baseline.coverage, withOwnUsage.coverage)
+        assertEquals(baseline.components, withOwnUsage.components)
+    }
+
     private fun calculate(apps: List<ProductivityAppUsage>): ProductivityScoreResult =
         engine.calculate(
             ProductivityScoreInput(

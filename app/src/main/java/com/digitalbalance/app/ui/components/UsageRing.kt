@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -111,6 +112,13 @@ fun ForegroundUsageRing(
                 Text(totalLabel, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.SemiBold)
                 Text(centerLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            WellbeingCompanion(
+                pose = CompanionPose.Perched,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-18).dp, y = (-2).dp)
+                    .size(48.dp)
+            )
         }
         Column(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

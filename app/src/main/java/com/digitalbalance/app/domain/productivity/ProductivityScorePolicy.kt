@@ -3,6 +3,7 @@ package com.digitalbalance.app.domain.productivity
 import com.digitalbalance.app.domain.category.AppCategory
 
 object ProductivityScorePolicy {
+    val EXCLUDED_PACKAGES = setOf("com.digitalbalance.app")
     const val MIN_SCORE = 0.0
     const val MAX_SCORE = 100.0
 

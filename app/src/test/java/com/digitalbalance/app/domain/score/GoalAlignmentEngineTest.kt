@@ -324,6 +324,49 @@ class GoalAlignmentEngineTest {
         assertEquals(ScoreConfidence.Medium, result.coverage.confidenceLevel)
     }
 
+    @Test
+    fun `digital balance cannot contribute to category goal alignment or coverage`() {
+        val goals = listOf(goal(GoalType.ProductiveTime, 60))
+        val baseline = calculate(
+            apps = listOf(app("work", 60, AppCategory.Productivity)),
+            goals = goals
+        )
+        val withOwnUsage = calculate(
+            apps = listOf(
+                app("work", 60, AppCategory.Productivity),
+                app("com.digitalbalance.app", 20, AppCategory.Productivity)
+            ),
+            goals = goals
+        )
+
+        assertReady(baseline)
+        assertReady(withOwnUsage)
+        assertEquals(baseline.score, withOwnUsage.score)
+        assertEquals(baseline.components, withOwnUsage.components)
+        assertEquals(baseline.coverage, withOwnUsage.coverage)
+        assertEquals(minutes(60), withOwnUsage.components.single().actualDurationMillis)
+    }
+
+    @Test
+    fun `overall and explicit per app goals include digital balance`() {
+        val result = calculate(
+            apps = listOf(
+                app("other", 60, AppCategory.Utility),
+                app("com.digitalbalance.app", 20, AppCategory.Utility)
+            ),
+            goals = listOf(
+                goal(GoalType.OverallForegroundUsage, 60),
+                appGoal("com.digitalbalance.app", "DigitalBalance", 10)
+            )
+        )
+
+        assertReady(result)
+        val overall = result.components.single { it.kind == ScoreComponentKind.OverallLimit }
+        val ownLimit = result.components.single { it.kind == ScoreComponentKind.PerAppLimit }
+        assertEquals(minutes(80), overall.actualDurationMillis)
+        assertEquals(minutes(20), ownLimit.actualDurationMillis)
+    }
+
     private fun calculate(
         apps: List<ScoredAppUsage> = emptyList(),
         goals: List<DigitalGoal> = emptyList()

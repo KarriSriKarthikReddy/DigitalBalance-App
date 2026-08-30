@@ -2,6 +2,7 @@ package com.digitalbalance.app.domain.goal
 
 import com.digitalbalance.app.data.usage.AppUsage
 import com.digitalbalance.app.domain.category.AppCategory
+import com.digitalbalance.app.domain.productivity.ProductivityScorePolicy
 
 class GoalProgressCalculator {
     fun calculate(
@@ -13,13 +14,22 @@ class GoalProgressCalculator {
             apps == null || totalForegroundDurationMillis == null -> null
             goal.type == GoalType.OverallForegroundUsage -> totalForegroundDurationMillis
             goal.type == GoalType.ProductiveTime -> apps
-                .filter { it.category in productiveCategories }
+                .filter {
+                    it.packageName !in ProductivityScorePolicy.EXCLUDED_PACKAGES &&
+                        it.category in productiveCategories
+                }
                 .sumOf(AppUsage::foregroundDurationMillis)
             goal.type == GoalType.SocialMediaLimit -> apps
-                .filter { it.category == AppCategory.Social }
+                .filter {
+                    it.packageName !in ProductivityScorePolicy.EXCLUDED_PACKAGES &&
+                        it.category == AppCategory.Social
+                }
                 .sumOf(AppUsage::foregroundDurationMillis)
             goal.type == GoalType.EntertainmentLimit -> apps
-                .filter { it.category == AppCategory.Entertainment }
+                .filter {
+                    it.packageName !in ProductivityScorePolicy.EXCLUDED_PACKAGES &&
+                        it.category == AppCategory.Entertainment
+                }
                 .sumOf(AppUsage::foregroundDurationMillis)
             goal.type == GoalType.AppDailyLimit -> apps
                 .filter { it.packageName == goal.packageName }

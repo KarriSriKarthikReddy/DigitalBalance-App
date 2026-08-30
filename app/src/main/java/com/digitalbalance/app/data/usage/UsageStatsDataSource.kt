@@ -30,6 +30,13 @@ class UsageStatsDataSource(context: Context) {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    fun resolveDefaultCategory(packageName: String) = categoryResolver.resolve(
+        packageName = packageName,
+        applicationCategory = appClassifier.applicationCategory(packageName)
+    )
+
+    fun loadIcon(packageName: String) = appClassifier.loadIcon(packageName)
+
     fun loadTodayUsage(nowMillis: Long = System.currentTimeMillis()): TodayUsage {
         val startOfDay = localStartOfDay(nowMillis)
         val records = loadEventRecords(startOfDay, nowMillis)
@@ -50,7 +57,8 @@ class UsageStatsDataSource(context: Context) {
             .associateWith { packageName ->
                 appClassifier.classify(
                     packageName = packageName,
-                    foregroundActivityClassNames = foregroundActivitiesByPackage[packageName].orEmpty()
+                    foregroundActivityClassNames = foregroundActivitiesByPackage[packageName].orEmpty(),
+                    hasForegroundSessionEvidence = true
                 )
             }
 
@@ -82,6 +90,7 @@ class UsageStatsDataSource(context: Context) {
         val totalDuration = includedSessions.sumOf(ForegroundSession::durationMillis)
         if (debugLoggingEnabled) {
             logGoogleSearchSummary(records, reconstruction, classifiedApps)
+            logSelectedPackageSummary(records, reconstruction, classifiedApps)
             logDebugComparison(
                 startOfDay = startOfDay,
                 nowMillis = nowMillis,
@@ -105,10 +114,13 @@ class UsageStatsDataSource(context: Context) {
             while (usageEvents.hasNextEvent()) {
                 usageEvents.getNextEvent(event)
                 val kind = eventKind(event.eventType)
-                if (debugLoggingEnabled && kind != null) {
+                if (
+                    debugLoggingEnabled &&
+                    (event.packageName == DEBUG_PACKAGE || kind?.isScreenOrKeyguardState == true)
+                ) {
                     Log.d(
                         DEBUG_TAG,
-                        "RAW_USAGE_EVENT package=${event.packageName} type=${event.eventType} " +
+                        "SELECTED_RAW_EVENT package=${event.packageName} type=${event.eventType} " +
                             "mappedKind=$kind class=${event.className} timestampMs=${event.timeStamp}"
                     )
                 }
@@ -148,6 +160,59 @@ class UsageStatsDataSource(context: Context) {
                 "sessions=${googleSessions.size} " +
                 "durationMs=${googleSessions.sumOf(ForegroundSession::durationMillis)} " +
                 "kind=${classified?.kind} included=${classified?.kind?.includedInPrimaryUsage}"
+        )
+    }
+
+    private fun logSelectedPackageSummary(
+        records: List<UsageEventRecord>,
+        reconstruction: SessionReconstruction,
+        classifiedApps: Map<String, ClassifiedApp>
+    ) {
+        val selectedEvents = records.filter {
+            it.packageName == DEBUG_PACKAGE || it.kind.isScreenOrKeyguardState
+        }
+        val selectedSessions = reconstruction.sessions.filter { it.packageName == DEBUG_PACKAGE }
+        selectedEvents.forEach { event ->
+            val decision = when (event.kind) {
+                UsageEventKind.Resumed -> when {
+                    selectedSessions.any { it.startMillis == event.timestampMillis } -> "accepted_start"
+                    selectedSessions.any {
+                        event.timestampMillis in it.startMillis..it.endMillis
+                    } -> "repeated_resume"
+                    else -> "no_positive_session"
+                }
+                UsageEventKind.Paused -> if (
+                    selectedSessions.any {
+                        it.endMillis == event.timestampMillis && it.endReason == SessionEndReason.Paused
+                    }
+                ) {
+                    "closed_session"
+                } else {
+                    "unmatched_or_late_pause"
+                }
+                else -> "supporting_state_only"
+            }
+            Log.d(
+                DEBUG_TAG,
+                "SELECTED_TRACE package=${event.packageName} timestampMs=${event.timestampMillis} " +
+                    "kind=${event.kind} activity=${event.activityId} decision=$decision"
+            )
+        }
+        selectedSessions.forEach { session ->
+            Log.d(
+                DEBUG_TAG,
+                "SELECTED_SESSION package=${session.packageName} startMs=${session.startMillis} " +
+                    "endMs=${session.endMillis} durationMs=${session.durationMillis} " +
+                    "startEvent=Resumed endEvent=${session.endReason}"
+            )
+        }
+        Log.d(
+            DEBUG_TAG,
+            "SELECTED_SUMMARY package=$DEBUG_PACKAGE mappedEvents=" +
+                records.count { it.packageName == DEBUG_PACKAGE } +
+                " sessions=${selectedSessions.size} " +
+                "durationMs=${selectedSessions.sumOf(ForegroundSession::durationMillis)} " +
+                "kind=${classifiedApps[DEBUG_PACKAGE]?.kind}"
         )
     }
 
@@ -250,5 +315,16 @@ class UsageStatsDataSource(context: Context) {
     private companion object {
         const val DEBUG_TAG = "DigitalBalanceUsage"
         const val GOOGLE_SEARCH_PACKAGE = "com.google.android.googlequicksearchbox"
+        const val DEBUG_PACKAGE = "com.instagram.android"
     }
 }
+
+private val UsageEventKind.isScreenOrKeyguardState: Boolean
+    get() = when (this) {
+        UsageEventKind.ScreenInteractive,
+        UsageEventKind.ScreenNonInteractive,
+        UsageEventKind.KeyguardShown,
+        UsageEventKind.KeyguardHidden -> true
+        UsageEventKind.Resumed,
+        UsageEventKind.Paused -> false
+    }

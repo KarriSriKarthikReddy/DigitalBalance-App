@@ -5,13 +5,18 @@ import kotlin.math.roundToInt
 
 class ProductivityScoreEngine {
     fun calculate(input: ProductivityScoreInput): ProductivityScoreResult {
-        val totalDuration = input.totalForegroundDurationMillis.coerceAtLeast(0L)
-        val apps = input.apps.map { app ->
+        val excludedDuration = input.apps
+            .filter { it.packageName in ProductivityScorePolicy.EXCLUDED_PACKAGES }
+            .sumOf { it.durationMillis.coerceAtLeast(0L) }
+        val totalDuration = (input.totalForegroundDurationMillis - excludedDuration).coerceAtLeast(0L)
+        val apps = input.apps
+            .filterNot { it.packageName in ProductivityScorePolicy.EXCLUDED_PACKAGES }
+            .map { app ->
             app.copy(
                 durationMillis = app.durationMillis.coerceAtLeast(0L),
                 openCount = app.openCount.coerceAtLeast(0)
             )
-        }
+            }
         val coverage = coverage(apps, totalDuration)
         val components = buildList {
             categoryBalanceComponent(apps)?.let(::add)

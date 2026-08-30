@@ -9,11 +9,10 @@ class AppKindResolverTest {
         assertEquals(
             AppKind.Launcher,
             resolveAppKind(
-                isDigitalBalance = false,
                 isDefaultHome = true,
                 isLaunchable = true,
                 isSystemApp = true,
-                hasExportedForegroundActivity = true
+                hasForegroundSessionEvidence = true
             )
         )
     }
@@ -23,25 +22,23 @@ class AppKindResolverTest {
         assertEquals(
             AppKind.SystemUserFacing,
             resolveAppKind(
-                isDigitalBalance = false,
                 isDefaultHome = false,
                 isLaunchable = true,
                 isSystemApp = true,
-                hasExportedForegroundActivity = false
+                hasForegroundSessionEvidence = true
             )
         )
     }
 
     @Test
-    fun exportedForegroundActivityMakesNonLauncherSystemAppUserFacing() {
+    fun foregroundSessionMakesNonLauncherSystemAppUserFacing() {
         assertEquals(
             AppKind.SystemUserFacing,
             resolveAppKind(
-                isDigitalBalance = false,
                 isDefaultHome = false,
                 isLaunchable = false,
                 isSystemApp = true,
-                hasExportedForegroundActivity = true
+                hasForegroundSessionEvidence = true
             )
         )
     }
@@ -51,25 +48,23 @@ class AppKindResolverTest {
         assertEquals(
             AppKind.BackgroundOrUnknown,
             resolveAppKind(
-                isDigitalBalance = false,
                 isDefaultHome = false,
                 isLaunchable = false,
                 isSystemApp = true,
-                hasExportedForegroundActivity = false
+                hasForegroundSessionEvidence = false
             )
         )
     }
 
     @Test
-    fun digitalBalanceRemainsExcluded() {
+    fun launchableDigitalBalanceAppUsesNormalUserFacingClassification() {
         assertEquals(
-            AppKind.DigitalBalance,
+            AppKind.UserFacing,
             resolveAppKind(
-                isDigitalBalance = true,
                 isDefaultHome = false,
                 isLaunchable = true,
                 isSystemApp = false,
-                hasExportedForegroundActivity = true
+                hasForegroundSessionEvidence = true
             )
         )
     }

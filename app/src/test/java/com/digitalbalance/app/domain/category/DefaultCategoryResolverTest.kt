@@ -40,6 +40,14 @@ class DefaultCategoryResolverTest {
     }
 
     @Test
+    fun `digital balance defaults to neutral utility`() {
+        assertEquals(
+            AppCategory.Utility,
+            resolver.resolve("com.digitalbalance.app", ApplicationInfo.CATEGORY_PRODUCTIVITY)
+        )
+    }
+
+    @Test
     fun `user override always takes precedence`() {
         assertEquals(
             AppCategory.Education,

@@ -38,4 +38,21 @@ class UsageMappingsTest {
         }
         assertNull(AppCategory.fromStorageKey("not_a_category"))
     }
+
+    @Test
+    fun `digital balance usage maps to durable daily history unchanged`() {
+        val entity = AppUsage(
+            packageName = "com.digitalbalance.app",
+            appName = "DigitalBalance",
+            foregroundDurationMillis = 20L * 60L * 1_000L,
+            openCount = 4,
+            icon = null,
+            category = AppCategory.Utility
+        ).toDailyUsageEntity("2026-08-30", 200L)
+
+        assertEquals("com.digitalbalance.app", entity.packageName)
+        assertEquals(20L * 60L * 1_000L, entity.foregroundDurationMillis)
+        assertEquals("com.digitalbalance.app", entity.toDomain().packageName)
+        assertEquals(20L * 60L * 1_000L, entity.toDomain().foregroundDurationMillis)
+    }
 }

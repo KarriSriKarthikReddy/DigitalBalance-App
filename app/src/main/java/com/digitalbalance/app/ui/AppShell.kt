@@ -42,6 +42,8 @@ import com.digitalbalance.app.ui.focus.FocusUiState
 import com.digitalbalance.app.domain.focus.FocusLaunchSuggestion
 import com.digitalbalance.app.domain.focus.FocusPreset
 import com.digitalbalance.app.domain.focus.FocusReflection
+import com.digitalbalance.app.domain.analytics.AnalyticsPeriod
+import com.digitalbalance.app.ui.insights.AnalyticsUiState
 
 private enum class AppDestination(
     @param:StringRes val labelRes: Int,
@@ -62,6 +64,7 @@ fun DigitalBalanceApp(
     productivityState: ProductivityUiState,
     insightState: InsightUiState,
     focusState: FocusUiState,
+    analyticsState: AnalyticsUiState,
     onOpenUsageSettings: () -> Unit,
     onRefreshUsage: () -> Unit,
     onCategoryChanged: (String, AppCategory) -> Unit,
@@ -79,7 +82,8 @@ fun DigitalBalanceApp(
     onFocusDone: () -> Unit,
     onStartAnotherFocus: () -> Unit,
     onFocusTick: () -> Unit,
-    onPrepareFocusSuggestion: (FocusLaunchSuggestion) -> Unit
+    onPrepareFocusSuggestion: (FocusLaunchSuggestion) -> Unit,
+    onAnalyticsPeriodSelected: (AnalyticsPeriod) -> Unit
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     var goalsOpen by rememberSaveable { mutableStateOf(false) }
@@ -171,7 +175,9 @@ fun DigitalBalanceApp(
                 modifier = modifier
             )
             AppDestination.Insights -> InsightsScreen(
-                state = insightState,
+                insightState = insightState,
+                analyticsState = analyticsState,
+                onPeriodSelected = onAnalyticsPeriodSelected,
                 onAction = handleInsightAction,
                 modifier = modifier
             )

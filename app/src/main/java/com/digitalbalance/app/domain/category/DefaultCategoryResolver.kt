@@ -32,6 +32,7 @@ class DefaultCategoryResolver {
         )
 
         val exactDefaults = mapOf(
+            "com.digitalbalance.app" to AppCategory.Utility,
             "com.duolingo" to AppCategory.Education,
             "org.khanacademy.android" to AppCategory.Education,
             "com.google.android.apps.classroom" to AppCategory.Education,

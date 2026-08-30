@@ -59,6 +59,8 @@ import com.digitalbalance.app.ui.components.LoadingContent
 import com.digitalbalance.app.ui.components.PremiumCard
 import com.digitalbalance.app.ui.components.ScreenHeader
 import com.digitalbalance.app.ui.components.StatusPill
+import com.digitalbalance.app.ui.components.CompanionPose
+import com.digitalbalance.app.ui.components.WellbeingCompanion
 import com.digitalbalance.app.ui.theme.DigitalBalanceSpacing
 import com.digitalbalance.app.ui.theme.digitalBalanceColors
 import java.text.DateFormat
@@ -125,6 +127,14 @@ private fun IdleFocusScreen(
                 title = stringResource(R.string.focus_idle_title),
                 subtitle = stringResource(R.string.focus_idle_description)
             )
+        }
+        item {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                WellbeingCompanion(
+                    pose = CompanionPose.Meditation,
+                    modifier = Modifier.size(156.dp)
+                )
+            }
         }
         item {
             Text(stringResource(R.string.focus_choose_intention), style = MaterialTheme.typography.titleLarge)

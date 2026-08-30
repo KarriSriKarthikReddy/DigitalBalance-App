@@ -3,6 +3,7 @@ package com.digitalbalance.app.domain.score
 import com.digitalbalance.app.domain.category.AppCategory
 import com.digitalbalance.app.domain.goal.DigitalGoal
 import com.digitalbalance.app.domain.goal.GoalType
+import com.digitalbalance.app.domain.productivity.ProductivityScorePolicy
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -62,13 +63,16 @@ class GoalAlignmentEngine {
         apps: List<ScoredAppUsage>,
         totalDuration: Long
     ): List<ScoreComponent> {
-        val productiveDuration = apps
+        val categoryEligibleApps = apps.filterNot {
+            it.packageName in ProductivityScorePolicy.EXCLUDED_PACKAGES
+        }
+        val productiveDuration = categoryEligibleApps
             .filter { it.category == AppCategory.Education || it.category == AppCategory.Productivity }
             .sumOf(ScoredAppUsage::durationMillis)
-        val socialDuration = apps
+        val socialDuration = categoryEligibleApps
             .filter { it.category == AppCategory.Social }
             .sumOf(ScoredAppUsage::durationMillis)
-        val entertainmentDuration = apps
+        val entertainmentDuration = categoryEligibleApps
             .filter { it.category == AppCategory.Entertainment }
             .sumOf(ScoredAppUsage::durationMillis)
         val perAppGoals = goals.filter { it.type == GoalType.AppDailyLimit && !it.packageName.isNullOrBlank() }
@@ -207,18 +211,25 @@ class GoalAlignmentEngine {
         components: List<ScoreComponent>,
         activeWeight: Double
     ): ScoreCoverage {
-        val mixed = apps.filter { it.category == AppCategory.MixedContextDependent }
+        val eligibleApps = apps.filterNot {
+            it.packageName in ProductivityScorePolicy.EXCLUDED_PACKAGES
+        }
+        val excludedDuration = apps
+            .filter { it.packageName in ProductivityScorePolicy.EXCLUDED_PACKAGES }
             .sumOf(ScoredAppUsage::durationMillis)
-        val explicitOther = apps.filter { it.category == AppCategory.Other }
+        val eligibleTotalDuration = (totalDuration - excludedDuration).coerceAtLeast(0L)
+        val mixed = eligibleApps.filter { it.category == AppCategory.MixedContextDependent }
             .sumOf(ScoredAppUsage::durationMillis)
-        val appDuration = apps.sumOf(ScoredAppUsage::durationMillis)
-        val unattributed = (totalDuration - appDuration).coerceAtLeast(0L)
+        val explicitOther = eligibleApps.filter { it.category == AppCategory.Other }
+            .sumOf(ScoredAppUsage::durationMillis)
+        val appDuration = eligibleApps.sumOf(ScoredAppUsage::durationMillis)
+        val unattributed = (eligibleTotalDuration - appDuration).coerceAtLeast(0L)
         val otherOrUnknown = explicitOther + unattributed
-        val classified = apps
+        val classified = eligibleApps
             .filter { it.category != AppCategory.MixedContextDependent && it.category != AppCategory.Other }
             .sumOf(ScoredAppUsage::durationMillis)
-        val classificationCoverage = if (totalDuration > 0L) {
-            (classified.toDouble() / totalDuration).coerceIn(0.0, 1.0)
+        val classificationCoverage = if (eligibleTotalDuration > 0L) {
+            (classified.toDouble() / eligibleTotalDuration).coerceIn(0.0, 1.0)
         } else {
             0.0
         }
@@ -246,7 +257,7 @@ class GoalAlignmentEngine {
             classifiedDurationMillis = classified,
             mixedDurationMillis = mixed,
             otherOrUnknownDurationMillis = otherOrUnknown,
-            totalForegroundDurationMillis = totalDuration
+            totalForegroundDurationMillis = eligibleTotalDuration
         )
     }
 

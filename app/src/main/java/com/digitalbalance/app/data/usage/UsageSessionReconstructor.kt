@@ -12,8 +12,6 @@ class UsageSessionReconstructor {
         var activePackage: String? = null
         var activeSince = 0L
         val activeActivityIds = mutableSetOf<String>()
-        var screenInteractive: Boolean? = null
-        var keyguardShown: Boolean? = null
         var unmatchedPauses = 0
         var ignoredEvents = 0
 
@@ -48,8 +46,6 @@ class UsageSessionReconstructor {
                     val packageName = event.packageName
                     if (packageName.isNullOrBlank()) {
                         ignoredEvents++
-                    } else if (screenInteractive == false || keyguardShown == true) {
-                        ignoredEvents++
                     } else if (activePackage != packageName) {
                         closeActive(event.timestampMillis, SessionEndReason.AppTransition)
                         activePackage = packageName
@@ -80,18 +76,14 @@ class UsageSessionReconstructor {
                 }
 
                 UsageEventKind.ScreenNonInteractive -> {
-                    screenInteractive = false
                     closeActive(event.timestampMillis, SessionEndReason.ScreenInactive)
                 }
 
-                UsageEventKind.ScreenInteractive -> screenInteractive = true
-
-                UsageEventKind.KeyguardShown -> {
-                    keyguardShown = true
-                    closeActive(event.timestampMillis, SessionEndReason.KeyguardShown)
-                }
-
-                UsageEventKind.KeyguardHidden -> keyguardShown = false
+                // Some OEMs omit or reorder matching screen/keyguard state events. Retain these
+                // signals for diagnostics, while activity transitions remain authoritative.
+                UsageEventKind.ScreenInteractive,
+                UsageEventKind.KeyguardShown,
+                UsageEventKind.KeyguardHidden -> Unit
             }
         }
 

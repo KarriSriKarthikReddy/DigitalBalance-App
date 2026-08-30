@@ -17,8 +17,7 @@ enum class AppKind(val includedInPrimaryUsage: Boolean) {
     UserFacing(true),
     SystemUserFacing(true),
     Launcher(false),
-    BackgroundOrUnknown(false),
-    DigitalBalance(false)
+    BackgroundOrUnknown(false)
 }
 
 data class ClassifiedApp(
@@ -50,7 +49,8 @@ class AppClassifier(context: Context) {
 
     fun classify(
         packageName: String,
-        foregroundActivityClassNames: Set<String> = emptySet()
+        foregroundActivityClassNames: Set<String> = emptySet(),
+        hasForegroundSessionEvidence: Boolean = false
     ): ClassifiedApp {
         val applicationInfo = getApplicationInfo(packageName)
         val isLaunchable = packageName in launchablePackages
@@ -62,11 +62,10 @@ class AppClassifier(context: Context) {
             flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
         } ?: false
         val kind = resolveAppKind(
-            isDigitalBalance = packageName == appContext.packageName,
             isDefaultHome = isDefaultHome,
             isLaunchable = isLaunchable,
             isSystemApp = isSystemApp,
-            hasExportedForegroundActivity = hasExportedForegroundActivity
+            hasForegroundSessionEvidence = hasForegroundSessionEvidence
         )
         val label = applicationInfo?.let(packageManager::getApplicationLabel)
             ?.toString()
@@ -81,6 +80,7 @@ class AppClassifier(context: Context) {
                 "FOREGROUND_CLASSIFICATION package=$packageName launchable=$isLaunchable " +
                     "homeCapable=${packageName in homeCapablePackages} " +
                     "defaultHome=$isDefaultHome system=$isSystemApp " +
+                    "foregroundSession=$hasForegroundSessionEvidence " +
                     "exportedForegroundActivity=$hasExportedForegroundActivity " +
                     "activityClasses=$foregroundActivityClassNames kind=$kind"
             )
@@ -190,15 +190,13 @@ class AppClassifier(context: Context) {
 }
 
 internal fun resolveAppKind(
-    isDigitalBalance: Boolean,
     isDefaultHome: Boolean,
     isLaunchable: Boolean,
     isSystemApp: Boolean,
-    hasExportedForegroundActivity: Boolean
+    hasForegroundSessionEvidence: Boolean
 ): AppKind = when {
-    isDigitalBalance -> AppKind.DigitalBalance
     isDefaultHome -> AppKind.Launcher
-    !isLaunchable && !hasExportedForegroundActivity -> AppKind.BackgroundOrUnknown
+    !isLaunchable && !hasForegroundSessionEvidence -> AppKind.BackgroundOrUnknown
     isSystemApp -> AppKind.SystemUserFacing
     else -> AppKind.UserFacing
 }

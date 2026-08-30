@@ -88,8 +88,7 @@ class UsageViewModel(
         repository.observeCategoryOverrides()
     ) { state, overrides ->
         if (state !is UsageUiState.Content) return@combine state
-        state.copy(
-            apps = state.apps.map { usage ->
+        val apps = state.apps.map { usage ->
                 usage.copy(
                     category = categoryWithOverride(
                         defaultCategory = usage.category,
@@ -97,7 +96,7 @@ class UsageViewModel(
                     )
                 )
             }
-        )
+        state.copy(apps = apps)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,

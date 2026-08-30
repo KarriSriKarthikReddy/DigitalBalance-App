@@ -104,7 +104,7 @@ class UsageSessionReconstructorTest {
     }
 
     @Test
-    fun activityResumedWhileKeyguardIsShownIsNotCounted() {
+    fun foregroundOemSurfaceIsCountedEvenWhileKeyguardStateIsShown() {
         val result = reconstruct(
             UsageEventRecord(null, 100, UsageEventKind.ScreenInteractive),
             UsageEventRecord(null, 110, UsageEventKind.KeyguardShown),
@@ -114,26 +114,34 @@ class UsageSessionReconstructorTest {
             end = 1_000
         )
 
-        assertEquals(emptyList<ForegroundSession>(), result.sessions)
+        assertSession(
+            result.sessions.single(),
+            "oem.lock.surface",
+            120,
+            600,
+            SessionEndReason.Paused
+        )
     }
 
     @Test
-    fun keyguardClosesAnExistingForegroundSessionAndBlocksLockSurface() {
+    fun keyguardDoesNotPrematurelyCloseSessionAndOemResumeCreatesTransition() {
         val result = reconstruct(
             resumed("app.user", 100),
             UsageEventRecord(null, 400, UsageEventKind.KeyguardShown),
             resumed("oem.lock.surface", 410),
+            paused("oem.lock.surface", 700),
             UsageEventRecord(null, 800, UsageEventKind.KeyguardHidden),
             end = 1_000
         )
 
         assertSession(
-            result.sessions.single(),
+            result.sessions[0],
             "app.user",
             100,
-            400,
-            SessionEndReason.KeyguardShown
+            410,
+            SessionEndReason.AppTransition
         )
+        assertSession(result.sessions[1], "oem.lock.surface", 410, 700, SessionEndReason.Paused)
     }
 
     @Test
@@ -148,11 +156,18 @@ class UsageSessionReconstructorTest {
             end = 1_000
         )
 
-        assertSession(result.sessions.single(), "app.user", 610, 900, SessionEndReason.Paused)
+        assertSession(
+            result.sessions[0],
+            "oem.lock.surface",
+            120,
+            610,
+            SessionEndReason.AppTransition
+        )
+        assertSession(result.sessions[1], "app.user", 610, 900, SessionEndReason.Paused)
     }
 
     @Test
-    fun activityResumedWhileScreenIsNonInteractiveWaitsForInteractiveState() {
+    fun resumeAfterScreenOffIsAcceptedWithoutWaitingForInteractiveState() {
         val result = reconstruct(
             UsageEventRecord(null, 100, UsageEventKind.ScreenNonInteractive),
             resumed("background.surface", 120),
@@ -162,11 +177,18 @@ class UsageSessionReconstructorTest {
             end = 1_000
         )
 
-        assertSession(result.sessions.single(), "app.user", 510, 800, SessionEndReason.Paused)
+        assertSession(
+            result.sessions[0],
+            "background.surface",
+            120,
+            510,
+            SessionEndReason.AppTransition
+        )
+        assertSession(result.sessions[1], "app.user", 510, 800, SessionEndReason.Paused)
     }
 
     @Test
-    fun keyguardStateWinsWhenStateEventsShareATimestamp() {
+    fun stateEventsAtSameTimestampDoNotSuppressResume() {
         val result = reconstruct(
             resumed("oem.lock.surface", 100),
             UsageEventRecord(null, 100, UsageEventKind.ScreenInteractive),
@@ -174,7 +196,70 @@ class UsageSessionReconstructorTest {
             end = 1_000
         )
 
-        assertEquals(emptyList<ForegroundSession>(), result.sessions)
+        assertSession(
+            result.sessions.single(),
+            "oem.lock.surface",
+            100,
+            1_000,
+            SessionEndReason.EndOfRange
+        )
+    }
+
+    @Test
+    fun staleKeyguardStateDoesNotDiscardLaterInstagramUsage() {
+        val result = reconstruct(
+            UsageEventRecord(null, 100, UsageEventKind.ScreenNonInteractive),
+            UsageEventRecord(null, 110, UsageEventKind.KeyguardShown),
+            UsageEventRecord(null, 400, UsageEventKind.ScreenInteractive),
+            resumed("com.instagram.android", 420),
+            paused("com.instagram.android", 920),
+            end = 1_000
+        )
+
+        assertSession(
+            result.sessions.single(),
+            "com.instagram.android",
+            420,
+            920,
+            SessionEndReason.Paused
+        )
+    }
+
+    @Test
+    fun screenOffClosesThenLaterResumeOfSameAppStartsANewSession() {
+        val result = reconstruct(
+            resumed("app.a", 100),
+            UsageEventRecord(null, 400, UsageEventKind.ScreenNonInteractive),
+            resumed("app.a", 600),
+            paused("app.a", 900),
+            end = 1_000
+        )
+
+        assertSession(result.sessions[0], "app.a", 100, 400, SessionEndReason.ScreenInactive)
+        assertSession(result.sessions[1], "app.a", 600, 900, SessionEndReason.Paused)
+        assertEquals(600L, result.sessions.sumOf(ForegroundSession::durationMillis))
+    }
+
+    @Test
+    fun unlockIntoAnotherAppSerializesSessionsWithoutOverlap() {
+        val result = reconstruct(
+            resumed("oem.lock.surface", 100),
+            UsageEventRecord(null, 300, UsageEventKind.KeyguardHidden),
+            resumed("app.user", 320),
+            paused("oem.lock.surface", 330),
+            paused("app.user", 700),
+            end = 1_000
+        )
+
+        assertSession(
+            result.sessions[0],
+            "oem.lock.surface",
+            100,
+            320,
+            SessionEndReason.AppTransition
+        )
+        assertSession(result.sessions[1], "app.user", 320, 700, SessionEndReason.Paused)
+        assertEquals(600L, result.sessions.sumOf(ForegroundSession::durationMillis))
     }
 
     @Test
@@ -205,6 +290,32 @@ class UsageSessionReconstructorTest {
 
         assertEquals(emptyList<ForegroundSession>(), result.sessions)
         assertEquals(3, result.ignoredEventCount)
+    }
+
+    @Test
+    fun digitalBalanceForegroundPairReconstructsLikeAnyOtherAppWithoutOverlap() {
+        val result = reconstruct(
+            resumed("com.instagram.android", 100),
+            resumed("com.digitalbalance.app", 400),
+            paused("com.digitalbalance.app", 700),
+            end = 1_000
+        )
+
+        assertSession(
+            result.sessions[0],
+            "com.instagram.android",
+            100,
+            400,
+            SessionEndReason.AppTransition
+        )
+        assertSession(
+            result.sessions[1],
+            "com.digitalbalance.app",
+            400,
+            700,
+            SessionEndReason.Paused
+        )
+        assertEquals(600L, result.sessions.sumOf(ForegroundSession::durationMillis))
     }
 
     private fun reconstruct(

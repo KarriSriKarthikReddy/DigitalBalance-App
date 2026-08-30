@@ -11,22 +11,28 @@ import com.digitalbalance.app.domain.category.AppCategory
 import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
 class UsageRepository(
     private val systemUsage: UsageStatsDataSource,
     private val usageDao: UsageDao
 ) {
+    private val mutableCurrentTodayUsage = MutableStateFlow<CurrentDayUsage?>(null)
+    val currentTodayUsage: StateFlow<CurrentDayUsage?> = mutableCurrentTodayUsage.asStateFlow()
+
     fun hasUsageAccess(): Boolean = systemUsage.hasUsageAccess()
 
     suspend fun loadAndStoreToday(nowMillis: Long = System.currentTimeMillis()): TodayUsage {
         val usage = systemUsage.loadTodayUsage(nowMillis)
-        if (usage.apps.isNotEmpty()) {
-            val dateKey = localDateKey(nowMillis)
-            usageDao.upsertDailyUsage(
-                usage.apps.map { it.toDailyUsageEntity(dateKey, nowMillis) }
-            )
-        }
+        val dateKey = localDateKey(nowMillis)
+        usageDao.replaceDailyUsage(
+            dateKey = dateKey,
+            records = usage.apps.map { it.toDailyUsageEntity(dateKey, nowMillis) }
+        )
+        mutableCurrentTodayUsage.value = CurrentDayUsage(dateKey, usage)
         return usage
     }
 
@@ -52,7 +58,17 @@ class UsageRepository(
         endDateKey: String
     ): Flow<List<DailyUsageRecord>> =
         usageDao.observeDailyUsage(startDateKey, endDateKey).map { rows -> rows.map { it.toDomain() } }
+
+    fun resolveDefaultCategory(packageName: String): AppCategory =
+        systemUsage.resolveDefaultCategory(packageName)
+
+    fun loadIcon(packageName: String) = systemUsage.loadIcon(packageName)
 }
+
+data class CurrentDayUsage(
+    val dateKey: String,
+    val usage: TodayUsage
+)
 
 internal fun localDateKey(timestampMillis: Long): String {
     val calendar = Calendar.getInstance().apply { timeInMillis = timestampMillis }
