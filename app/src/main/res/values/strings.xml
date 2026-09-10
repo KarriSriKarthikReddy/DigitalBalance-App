@@ -222,4 +222,20 @@
     <string name="categories_settings_description">Review how apps contribute to goals and scores.</string>
     <string name="review_categories">Review categories</string>
     <string name="privacy_about_title">Privacy &amp; app</string>
+    <string name="reminders_title">Reminders</string>
+    <string name="reminders_description">Optional, on-device notifications based on your configured goals and real usage.</string>
+    <string name="notifications_enable">Enable notifications</string>
+    <string name="notifications_enable_description">Allow DigitalBalance to send the reminders you choose.</string>
+    <string name="goal_limit_reminders">Goal and limit reminders</string>
+    <string name="goal_limit_reminders_description">One approaching and one reached reminder per configured limit each day.</string>
+    <string name="daily_summary_setting">Daily summary</string>
+    <string name="daily_summary_setting_description">A concise summary around 8:30 PM local time.</string>
+    <string name="focus_suggestions_setting">Focus suggestions</string>
+    <string name="focus_suggestions_setting_description">At most one gentle Focus suggestion per day when it may be useful.</string>
+    <string name="notification_permission_blocked">Android notification permission is off. DigitalBalance remains fully usable.</string>
+    <string name="notification_permission_explanation_title">Enable DigitalBalance reminders?</string>
+    <string name="notification_permission_explanation">Android requires notification permission so DigitalBalance can show the reminders you select. Usage data and reminder processing stay on this device.</string>
+    <string name="continue_action">Continue</string>
+    <string name="notification_channel_name">DigitalBalance reminders</string>
+    <string name="notification_channel_description">Goal, limit, Focus, and daily summary reminders</string>
 </resources>

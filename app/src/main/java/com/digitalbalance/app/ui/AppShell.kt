@@ -14,6 +14,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +45,8 @@ import com.digitalbalance.app.domain.focus.FocusPreset
 import com.digitalbalance.app.domain.focus.FocusReflection
 import com.digitalbalance.app.domain.analytics.AnalyticsPeriod
 import com.digitalbalance.app.ui.insights.AnalyticsUiState
+import com.digitalbalance.app.domain.reminder.ReminderDestination
+import com.digitalbalance.app.domain.reminder.ReminderSettings
 
 private enum class AppDestination(
     @param:StringRes val labelRes: Int,
@@ -65,6 +68,9 @@ fun DigitalBalanceApp(
     insightState: InsightUiState,
     focusState: FocusUiState,
     analyticsState: AnalyticsUiState,
+    reminderSettings: ReminderSettings,
+    notificationPermissionGranted: Boolean,
+    notificationDestination: ReminderDestination?,
     onOpenUsageSettings: () -> Unit,
     onRefreshUsage: () -> Unit,
     onCategoryChanged: (String, AppCategory) -> Unit,
@@ -83,11 +89,42 @@ fun DigitalBalanceApp(
     onStartAnotherFocus: () -> Unit,
     onFocusTick: () -> Unit,
     onPrepareFocusSuggestion: (FocusLaunchSuggestion) -> Unit,
-    onAnalyticsPeriodSelected: (AnalyticsPeriod) -> Unit
+    onAnalyticsPeriodSelected: (AnalyticsPeriod) -> Unit,
+    onRequestEnableNotifications: () -> Unit,
+    onDisableNotifications: () -> Unit,
+    onGoalAndLimitRemindersChanged: (Boolean) -> Unit,
+    onDailySummaryChanged: (Boolean) -> Unit,
+    onFocusSuggestionsChanged: (Boolean) -> Unit,
+    onNotificationDestinationHandled: () -> Unit
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     var goalsOpen by rememberSaveable { mutableStateOf(false) }
     var scoreDetailsOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(notificationDestination) {
+        if (notificationDestination != null) goalsOpen = false
+        when (notificationDestination) {
+            ReminderDestination.Home -> destination = AppDestination.Home
+            ReminderDestination.Apps -> destination = AppDestination.Apps
+            ReminderDestination.Goals -> {
+                destination = AppDestination.Settings
+                goalsOpen = true
+            }
+            ReminderDestination.Insights -> destination = AppDestination.Insights
+            ReminderDestination.Focus -> {
+                onPrepareFocusSuggestion(
+                    FocusLaunchSuggestion(
+                        preset = FocusPreset.Focus,
+                        durationMinutes = 25,
+                        autoStart = false
+                    )
+                )
+                destination = AppDestination.Focus
+            }
+            null -> return@LaunchedEffect
+        }
+        scoreDetailsOpen = false
+        onNotificationDestinationHandled()
+    }
     val handleInsightAction: (InsightActionType) -> Unit = { action ->
         when (action) {
             InsightActionType.OpenGoals -> {
@@ -214,6 +251,13 @@ fun DigitalBalanceApp(
                     onOpenUsageSettings = onOpenUsageSettings,
                     onOpenGoals = { goalsOpen = true },
                     onOpenCategories = { destination = AppDestination.Apps },
+                    reminderSettings = reminderSettings,
+                    notificationPermissionGranted = notificationPermissionGranted,
+                    onRequestEnableNotifications = onRequestEnableNotifications,
+                    onDisableNotifications = onDisableNotifications,
+                    onGoalAndLimitRemindersChanged = onGoalAndLimitRemindersChanged,
+                    onDailySummaryChanged = onDailySummaryChanged,
+                    onFocusSuggestionsChanged = onFocusSuggestionsChanged,
                     modifier = modifier
                 )
             }
